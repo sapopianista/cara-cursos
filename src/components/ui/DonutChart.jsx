@@ -21,15 +21,16 @@ export default function DonutChart({
   const total = segmentos.reduce((soma, s) => soma + s.valor, 0) || 1;
   const interativo = typeof onAtivoChange === 'function';
 
-  let acumulado = 0;
+  const comprimentos = segmentos.map((s) => (Math.max(s.valor, 0) / total) * circunferencia);
+  const inicios = comprimentos.map((_, i) => comprimentos.slice(0, i).reduce((a, b) => a + b, 0));
+
   const arcos = segmentos.map((s, i) => {
     if (s.valor <= 0) return null;
-    const comprimento = (s.valor / total) * circunferencia;
+    const comprimento = comprimentos[i];
     // As pontas arredondadas (round caps) "comem" `espessura` do arco;
     // descontamos isso para manter uma folga visual constante entre segmentos.
     const visivel = Math.max(comprimento - folga - espessura, 0.01);
-    const deslocamento = -(acumulado + (folga + espessura) / 2);
-    acumulado += comprimento;
+    const deslocamento = -(inicios[i] + (folga + espessura) / 2);
 
     const destacado = ativo === i;
     const esmaecido = ativo !== null && !destacado;
@@ -55,7 +56,12 @@ export default function DonutChart({
   });
 
   return (
-    <div className="relative shrink-0" style={{ width: tamanho, height: tamanho }} role="img" aria-label={rotulo}>
+    <div
+      className="relative shrink-0"
+      style={{ width: tamanho, height: tamanho }}
+      role="img"
+      aria-label={rotulo}
+    >
       <svg
         width={tamanho}
         height={tamanho}

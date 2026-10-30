@@ -1,57 +1,77 @@
+import { forwardRef } from 'react';
 import { Link } from 'react-router-dom';
+import { LoaderCircle } from 'lucide-react';
 import { cn } from '../../lib/cn';
 
 const VARIANTES = {
-  primary: 'bg-primary text-onprimary hover:brightness-110',
-  accent: 'bg-accent text-onaccent hover:brightness-110',
-  lilac: 'bg-lilac text-onprimary hover:brightness-105',
-  secondary: 'bg-surface2 text-ink hover:bg-track',
-  outline: 'border border-line bg-transparent text-ink hover:border-primary/50 hover:text-primary',
+  primary: 'bg-primary text-onprimary hover:bg-primary-hover shadow-sm',
+  secondary: 'border border-line bg-surface2 text-ink hover:border-track hover:bg-track/60',
+  outline: 'border border-line bg-transparent text-ink hover:border-primary/60 hover:text-primary',
   ghost: 'text-muted hover:bg-surface2 hover:text-ink',
-  glass: 'border border-white/10 bg-black/40 text-white backdrop-blur hover:bg-black/60',
+  danger: 'bg-danger text-white hover:bg-danger-hover shadow-sm',
+  'danger-ghost': 'text-danger hover:bg-danger/10',
+  link: 'text-primary underline-offset-4 hover:underline !px-0 !py-0',
 };
 
 const TAMANHOS = {
-  xs: 'gap-1.5 rounded-lg px-3 py-1.5 text-xs',
-  sm: 'gap-1.5 rounded-lg px-3.5 py-2 text-xs',
-  md: 'gap-2 rounded-xl px-4 py-2.5 text-sm',
-  lg: 'gap-2 rounded-xl px-5 py-3 text-sm',
+  sm: 'min-h-9 gap-1.5 rounded-lg px-3 py-1.5 text-sm',
+  md: 'min-h-10 gap-2 rounded-xl px-4 py-2 text-sm',
+  lg: 'min-h-12 gap-2 rounded-xl px-6 py-3 text-base',
 };
+
+const TAMANHO_ICONE = { sm: 15, md: 16, lg: 18 };
+const SO_ICONE = { sm: '!px-0 w-9', md: '!px-0 w-10', lg: '!px-0 w-12' };
 
 /**
  * Botão padrão do design system.
- * - `to`   → renderiza <Link> (navegação interna)
- * - `href` → renderiza <a>
+ * - `to`   → <Link> (navegação interna)
+ * - `href` → <a>
  * - caso contrário → <button>
+ * `carregando` desabilita e mostra um spinner (mantendo a largura estável).
+ * `apenasIcone` exige `aria-label`.
  */
-export default function Button({
-  variante = 'primary',
-  tamanho = 'md',
-  to,
-  href,
-  iconeEsquerda: IconeE,
-  iconeDireita: IconeD,
-  className,
-  children,
-  type = 'button',
-  ...rest
-}) {
+const Button = forwardRef(function Button(
+  {
+    variante = 'primary',
+    tamanho = 'md',
+    to,
+    href,
+    iconeEsquerda: IconeE,
+    iconeDireita: IconeD,
+    apenasIcone = false,
+    carregando = false,
+    blocoInteiro = false,
+    className,
+    children,
+    type = 'button',
+    disabled,
+    ...rest
+  },
+  ref,
+) {
   const classes = cn(
-    'group inline-flex items-center justify-center whitespace-nowrap font-semibold transition-all duration-200 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60',
+    'group inline-flex shrink-0 select-none items-center justify-center whitespace-nowrap font-semibold transition-[color,background-color,border-color,transform,box-shadow] duration-150 active:scale-[0.97] disabled:pointer-events-none disabled:opacity-55 aria-disabled:pointer-events-none aria-disabled:opacity-55',
     VARIANTES[variante],
     TAMANHOS[tamanho],
+    apenasIcone && SO_ICONE[tamanho],
+    blocoInteiro && 'w-full',
     className,
   );
+  const tamIcone = TAMANHO_ICONE[tamanho];
 
   const conteudo = (
     <>
-      {IconeE && <IconeE size={tamanho === 'xs' || tamanho === 'sm' ? 14 : 16} aria-hidden />}
+      {carregando ? (
+        <LoaderCircle size={tamIcone} className="animate-spin" aria-hidden />
+      ) : (
+        IconeE && <IconeE size={tamIcone} aria-hidden className="shrink-0" />
+      )}
       {children}
-      {IconeD && (
+      {IconeD && !carregando && (
         <IconeD
-          size={tamanho === 'xs' || tamanho === 'sm' ? 14 : 16}
+          size={tamIcone}
           aria-hidden
-          className="transition-transform group-hover:translate-x-0.5"
+          className="shrink-0 transition-transform duration-200 group-hover:translate-x-0.5"
         />
       )}
     </>
@@ -59,21 +79,30 @@ export default function Button({
 
   if (to) {
     return (
-      <Link to={to} className={classes} {...rest}>
+      <Link ref={ref} to={to} className={classes} {...rest}>
         {conteudo}
       </Link>
     );
   }
   if (href) {
     return (
-      <a href={href} className={classes} {...rest}>
+      <a ref={ref} href={href} className={classes} {...rest}>
         {conteudo}
       </a>
     );
   }
   return (
-    <button type={type} className={classes} {...rest}>
+    <button
+      ref={ref}
+      type={type}
+      className={classes}
+      disabled={disabled || carregando}
+      aria-busy={carregando || undefined}
+      {...rest}
+    >
       {conteudo}
     </button>
   );
-}
+});
+
+export default Button;

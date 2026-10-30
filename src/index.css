@@ -4,8 +4,7 @@
 
 /*
  * Tokens de cor (RGB "r g b") consumidos pelo tailwind.config.js.
- * Dark Mode é o padrão (fiel ao protótipo); o tema claro é alternado
- * via <html data-theme="light"> pelo botão "Modo escuro".
+ * Dark Mode é o padrão; o tema claro é alternado via <html data-theme="light">.
  */
 :root,
 :root[data-theme='dark'] {
@@ -20,12 +19,16 @@
   --c-muted: 176 183 201;
   --c-subtle: 148 155 176;
   --c-primary: 75 140 247;
+  --c-primary-hover: 104 160 250;
   --c-accent: 47 217 176;
   --c-warn: 245 166 35;
   --c-danger: 244 114 107;
+  --c-danger-hover: 248 140 134;
   --c-lilac: 169 191 255;
   --c-on-primary: 10 22 52;
   --c-on-accent: 4 34 27;
+  /* Fundo do player de vídeo: sempre escuro, nos dois temas */
+  --c-player: 9 11 18;
   color-scheme: dark;
 }
 
@@ -40,12 +43,15 @@
   --c-muted: 78 86 108;
   --c-subtle: 98 106 128;
   --c-primary: 47 111 224;
+  --c-primary-hover: 33 92 196;
   --c-accent: 4 120 96;
   --c-warn: 176 98 0;
   --c-danger: 200 50 45;
+  --c-danger-hover: 170 38 34;
   --c-lilac: 72 94 196;
   --c-on-primary: 255 255 255;
   --c-on-accent: 255 255 255;
+  --c-player: 9 11 18;
   color-scheme: light;
 }
 
@@ -63,7 +69,6 @@
   ::selection {
     @apply bg-primary/30;
   }
-  /* Scrollbar discreta */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
@@ -73,92 +78,129 @@
   }
 }
 
-@layer utilities {
-  .animate-entrada {
-    animation: entrada 0.45s ease-out both;
+@layer components {
+  /* Bloco de carregamento com brilho deslizante (mais suave que o pulse). */
+  .skeleton {
+    @apply rounded-xl bg-surface2;
+    background-image: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgb(var(--c-track) / 0.45) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: brilho 1.6s linear infinite;
   }
-  @keyframes entrada {
-    from {
-      opacity: 0;
-      transform: translateY(8px);
+  @keyframes brilho {
+    0% {
+      background-position: 200% 0;
     }
-    to {
-      opacity: 1;
-      transform: none;
+    100% {
+      background-position: -200% 0;
     }
   }
-}
 
-/* ---------- <dialog> modal ------------------------------------------- */
-dialog:modal {
-  /* Impede que o scroll dentro do modal "vaze" para a página */
-  overscroll-behavior: contain;
-}
-dialog::backdrop {
-  background-color: rgb(0 0 0 / 0.6);
-  backdrop-filter: blur(3px);
-  /* ::backdrop precisa ser scroll container para respeitar overscroll-behavior */
-  overflow: hidden;
-  overscroll-behavior: contain;
-}
-dialog[open] {
-  animation: entrada 0.25s ease-out both;
+  /* Card clicável: levanta levemente no hover e "afunda" ao pressionar. */
+  .card-interativo {
+    @apply transition-[transform,box-shadow,border-color] duration-200 ease-suave;
+  }
+  .card-interativo:hover {
+    @apply -translate-y-0.5 border-primary/40 shadow-card-hover;
+  }
+  .card-interativo:active {
+    @apply translate-y-0 scale-[0.995];
+  }
+
+  /* Accordion com transição de altura (grid 0fr -> 1fr, sem medir em JS). */
+  .recolhivel {
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .recolhivel[data-aberto='true'] {
+    grid-template-rows: 1fr;
+  }
+  .recolhivel > * {
+    overflow: hidden;
+    min-height: 0;
+  }
 }
 
 /* ---------- Tabela responsiva ----------------------------------------- */
-/* Os rótulos das colunas chegam via CSS vars (--label-N) definidas no <table>. */
+/* Abaixo de 760px de largura do container, cada linha vira um card.
+ * Os rótulos das colunas chegam via CSS vars (--label-N) definidas no <table>. */
 .tabela-wrapper {
   container-type: inline-size;
   overflow-x: auto;
-}
-.tabela-wrapper tbody th {
-  position: sticky;
-  inset-inline-start: 0;
-  z-index: 1;
 }
 
 @container (width < 760px) {
   .tabela-responsiva,
   .tabela-responsiva tbody,
   .tabela-responsiva tr,
-  .tabela-responsiva th,
   .tabela-responsiva td {
     display: block;
   }
   .tabela-responsiva thead {
     display: none;
   }
-  .tabela-responsiva tr {
+  .tabela-responsiva tbody tr {
     margin: 0.75rem;
     border: 1px solid rgb(var(--c-line));
     border-radius: 1rem;
     overflow: hidden;
   }
-  .tabela-responsiva tbody th {
-    position: static;
+  .tabela-responsiva tbody {
+    border: 0;
   }
   .tabela-responsiva td {
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 1rem;
-    padding-block: 0.5rem !important;
+    padding-block: 0.625rem !important;
+    text-align: right;
+  }
+  .tabela-responsiva td[data-vazio] {
+    display: block;
+    text-align: center;
+  }
+  .tabela-responsiva td[data-vazio]::before {
+    content: none;
   }
   .tabela-responsiva td::before {
-    font-size: 11px;
+    flex-shrink: 0;
+    font-size: 0.75rem;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.05em;
+    text-align: left;
     color: rgb(var(--c-subtle));
   }
-  .tabela-responsiva td:nth-child(1)::before { content: var(--label-1) / var(--label-1); }
-  .tabela-responsiva td:nth-child(2)::before { content: var(--label-2) / var(--label-2); }
-  .tabela-responsiva td:nth-child(3)::before { content: var(--label-3) / var(--label-3); }
-  .tabela-responsiva td:nth-child(4)::before { content: var(--label-4) / var(--label-4); }
-  .tabela-responsiva td:nth-child(5)::before { content: var(--label-5) / var(--label-5); }
-  .tabela-responsiva td:nth-child(6)::before { content: var(--label-6) / var(--label-6); }
-  .tabela-responsiva td:nth-child(7)::before { content: var(--label-7) / var(--label-7); }
-  .tabela-responsiva td:nth-child(8)::before { content: var(--label-8) / var(--label-8); }
-  .tabela-responsiva td:nth-child(9)::before { content: var(--label-9) / var(--label-9); }
+  .tabela-responsiva td:nth-child(1)::before {
+    content: var(--label-1);
+  }
+  .tabela-responsiva td:nth-child(2)::before {
+    content: var(--label-2);
+  }
+  .tabela-responsiva td:nth-child(3)::before {
+    content: var(--label-3);
+  }
+  .tabela-responsiva td:nth-child(4)::before {
+    content: var(--label-4);
+  }
+  .tabela-responsiva td:nth-child(5)::before {
+    content: var(--label-5);
+  }
+  .tabela-responsiva td:nth-child(6)::before {
+    content: var(--label-6);
+  }
+  .tabela-responsiva td:nth-child(7)::before {
+    content: var(--label-7);
+  }
+  .tabela-responsiva td:nth-child(8)::before {
+    content: var(--label-8);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -166,6 +208,8 @@ dialog[open] {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }
