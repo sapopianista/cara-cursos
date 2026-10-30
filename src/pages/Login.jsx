@@ -10,7 +10,7 @@ import Button from '../components/ui/Button';
 import { Campo, Checkbox, CampoTexto, classeControle } from '../components/ui/Campo';
 
 const REGRAS = {
-  identificador: [obrigatorio('Informe seu e-mail corporativo ou CPF.')],
+  identificador: [obrigatorio('Informe seu e-mail corporativo.')],
   senha: [obrigatorio('Informe sua senha.')],
 };
 
@@ -81,10 +81,11 @@ export default function Login() {
 
           <form onSubmit={aoSubmeter} noValidate className="mt-6 space-y-5">
             <CampoTexto
-              rotulo="E-mail corporativo ou CPF"
+              rotulo="E-mail corporativo"
               obrigatorio
               icone={IdCard}
               name="username"
+              type="email"
               autoComplete="username"
               spellCheck="false"
               autoFocus

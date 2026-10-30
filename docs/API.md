@@ -3,8 +3,12 @@
 Referência para implementar o backend. O front já consome exatamente estes formatos — a implementação simulada
 em `src/services/mock/handlers.js` é a fonte de verdade executável (os dados de exemplo estão em `mock/db.js`).
 
-Base: `VITE_API_URL` (padrão `/api`). Todas as rotas, exceto `POST /auth/login`, exigem
+Base: `VITE_API_URL` (padrão `/api`). Todas as rotas, exceto `POST /auth/login` e `GET /saude`, exigem
 `Authorization: Bearer <token>`.
+
+**Implementado em `backend/`:** autenticação, aluno, catálogo, trilhas, sala de aula, notificações, visão geral e
+colaboradores. **Ainda no mock:** suporte, gestores e permissões, relatórios, faturamento e configurações
+(ver `MODULOS_SO_NO_MOCK` em `src/services/api.js` e a Etapa 7 de `backend/PLANO.md`).
 
 ## Convenções
 
@@ -57,7 +61,9 @@ O backend **deve** aplicar as mesmas regras (o front só esconde o que não é p
 // 200
 { "token": "eyJ…", "usuario": Usuario }
 ```
-`401` credenciais inválidas · `403` acesso desativado.
+`identificador` é o e-mail corporativo (sem diferenciar maiúsculas). `lembrar: true` → sessão de 30 dias;
+senão, 12 horas. `422` com `campos` se faltar e-mail ou senha · `401` credenciais inválidas (mesma mensagem para
+e-mail inexistente, senha errada ou convite ainda não aceito) · `403` acesso desativado.
 
 ### `GET /auth/me` → `Usuario`
 Usado ao recarregar a página para validar o token salvo.
@@ -99,7 +105,10 @@ Nivel = {
 }
 ```
 
-### `GET /certificados/{id}/arquivo` → PDF (quando `url` não vier no JSON)
+### `GET /certificados/{id}/arquivo` → PDF
+O backend envia `url: "/certificados/{id}/arquivo"` em cada certificado; só o dono baixa (outro usuário → `404`).
+Certificados são emitidos automaticamente ao concluir todas as aulas de um curso (`origem: "Curso"`) e ao concluir
+todos os cursos de um nível (`origem: "Nível N"`).
 
 ### `GET /alunos/me/perfil`
 `Usuario` + `{ matricula, membroDesde, estatisticas: { cursosConcluidos, minutosEstudados, certificados }, preferencias }`
@@ -115,9 +124,10 @@ Responde as preferências salvas. (O tema claro/escuro é salvo só no navegador
 {
   perfil: { cargo, departamento },
   porCargo: { curso: Curso, motivo: string }[],
-  continuidade: { baseadoEm: string, cursos: { curso: Curso, motivo: string }[] }
+  continuidade: null | { baseadoEm: string, cursos: { curso: Curso, motivo: string }[] }
 }
 ```
+`continuidade` é `null` enquanto o aluno não tiver concluído um curso com relacionados por fazer.
 `motivo` é exibido no card ("Indicado para quem atua em Operações").
 
 ## Catálogo

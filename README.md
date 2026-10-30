@@ -33,10 +33,18 @@ basta ela enviar a `url` do arquivo.
 
 ## Conectando o backend Java
 
-1. `cp .env.example .env` e defina `VITE_USAR_MOCK=false`.
-2. Em desenvolvimento, `/api` é redirecionado para `http://localhost:8080` (ver `vite.config.js`). Em produção,
+O backend fica em **[backend/](backend/README.md)** e requer **JDK 25**, a versão LTS mais recente, e MySQL 8.
+O Maven vem junto (`backend/mvnw.cmd`). O WAR continua compatível com Tomcat 10.1.
+
+1. Crie a base com `backend/sql/cara_cursos.sql` e suba a API: `cd backend && .\mvnw.cmd jetty:run`
+   (detalhes em [backend/README.md](backend/README.md)).
+2. `cp .env.example .env` e defina `VITE_USAR_MOCK=false`.
+3. Em desenvolvimento, `/api` é redirecionado para `http://localhost:8080` (ver `vite.config.js`). Em produção,
    defina `VITE_API_URL` com a URL pública da API.
-3. Implemente os endpoints descritos em **[docs/API.md](docs/API.md)**. Nenhum componente precisa mudar.
+
+Os módulos que o backend ainda não implementa (suporte, gestores, relatórios, faturamento e configurações)
+estão em `MODULOS_SO_NO_MOCK` (`src/services/api.js`) e continuam simulados mesmo com o mock desligado.
+O contrato completo dos endpoints está em **[docs/API.md](docs/API.md)**.
 
 Convenções esperadas do backend (detalhes em `docs/API.md`):
 

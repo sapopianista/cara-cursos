@@ -11,13 +11,13 @@ describe('autenticação', () => {
   it('valida campos vazios sem chamar a API', async () => {
     const { usuario } = renderizarApp('/login');
     await usuario.click(await screen.findByRole('button', { name: 'Entrar' }));
-    expect(screen.getByText('Informe seu e-mail corporativo ou CPF.')).toBeInTheDocument();
+    expect(screen.getByText('Informe seu e-mail corporativo.')).toBeInTheDocument();
     expect(screen.getByText('Informe sua senha.')).toBeInTheDocument();
   });
 
   it('mostra erro com credenciais inválidas', async () => {
     const { usuario } = renderizarApp('/login');
-    await usuario.type(await screen.findByLabelText(/E-mail corporativo ou CPF/), 'ninguem@oscorp.com');
+    await usuario.type(await screen.findByLabelText(/E-mail corporativo/), 'ninguem@oscorp.com');
     await usuario.type(screen.getByLabelText(/^Senha/), 'qualquer123');
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
     expect(await screen.findByRole('alert')).toHaveTextContent('E-mail ou senha incorretos.');
@@ -25,7 +25,7 @@ describe('autenticação', () => {
 
   it('entra e chega ao Início', async () => {
     const { usuario } = renderizarApp('/login');
-    await usuario.type(await screen.findByLabelText(/E-mail corporativo ou CPF/), 'tiago.vieira@oscorp.com');
+    await usuario.type(await screen.findByLabelText(/E-mail corporativo/), 'tiago.vieira@oscorp.com');
     await usuario.type(screen.getByLabelText(/^Senha/), 'demo1234');
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Olá, Tiago' })).toBeInTheDocument();

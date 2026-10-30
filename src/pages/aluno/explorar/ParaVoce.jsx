@@ -41,12 +41,15 @@ export default function ParaVoce() {
         <Lista itens={porCargo} />
       </Secao>
 
-      <Secao
-        titulo="Próximos passos"
-        descricao={`Complementam o curso “${continuidade.baseadoEm}”, que você concluiu.`}
-      >
-        <Lista itens={continuidade.cursos} />
-      </Secao>
+      {/* Sem curso concluído ainda, não há "próximos passos" (a API manda null). */}
+      {continuidade && continuidade.cursos.length > 0 && (
+        <Secao
+          titulo="Próximos passos"
+          descricao={`Complementam o curso “${continuidade.baseadoEm}”, que você concluiu.`}
+        >
+          <Lista itens={continuidade.cursos} />
+        </Secao>
+      )}
     </div>
   );
 }
