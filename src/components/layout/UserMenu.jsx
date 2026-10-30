@@ -1,88 +1,105 @@
-import { useEffect, useId, useRef, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { ChevronDown, ShieldCheck, User, GraduationCap, UserRound } from 'lucide-react';
+import { useId } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { ChevronDown, GraduationCap, LayoutDashboard, LogOut, UserRound } from 'lucide-react';
 import { cn } from '../../lib/cn';
+import { useAuth } from '../../context/AuthContext';
+import { usePopover } from '../../hooks/utilitarios';
+import { inicioAdmin } from '../../config/navigation';
+import Avatar from '../ui/Avatar';
 
-/** Avatar + nome + painel de links da conta (padrão "disclosure", sem role=menu). */
-export default function UserMenu({ nome = 'Tiago', admin = false }) {
-  const [aberto, setAberto] = useState(false);
-  const ref = useRef(null);
-  const botaoRef = useRef(null);
+const NOME_PAPEL = {
+  admin: 'Administrador',
+  rh: 'Gestor de RH',
+  lider: 'Líder de equipe',
+  financeiro: 'Financeiro',
+  colaborador: 'Colaborador',
+};
+
+const classeItem =
+  'flex min-h-10 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-muted transition-colors hover:bg-surface2 hover:text-ink';
+
+/** Avatar + nome + painel da conta (padrão "disclosure"). */
+export default function UserMenu({ admin = false }) {
+  const { usuario, ehGestor, pode, sair } = useAuth();
+  const { aberto, setAberto, alternar, containerRef, gatilhoRef } = usePopover();
+  const navigate = useNavigate();
   const painelId = useId();
 
-  // Fecha ao clicar fora ou apertar Esc (Esc devolve o foco ao botão).
-  useEffect(() => {
-    if (!aberto) return;
-    const fora = (e) => !ref.current?.contains(e.target) && setAberto(false);
-    const esc = (e) => {
-      if (e.key !== 'Escape') return;
-      setAberto(false);
-      botaoRef.current?.focus();
-    };
-    document.addEventListener('mousedown', fora);
-    document.addEventListener('keydown', esc);
-    return () => {
-      document.removeEventListener('mousedown', fora);
-      document.removeEventListener('keydown', esc);
-    };
-  }, [aberto]);
+  if (!usuario) return null;
+  const primeiroNome = usuario.nome.split(' ')[0];
 
-  const itens = admin
-    ? [
-        { rotulo: 'Visão do aluno', to: '/', icone: GraduationCap },
-        { rotulo: 'Sair / Alternar conta', to: '/login', icone: UserRound },
-      ]
-    : [
-        { rotulo: 'Meu perfil', to: '/perfil', icone: UserRound },
-        { rotulo: 'Visão corporativa (RH)', to: '/admin', icone: ShieldCheck },
-        { rotulo: 'Sair / Alternar conta', to: '/login', icone: UserRound },
-      ];
+  const fazerLogout = async () => {
+    setAberto(false);
+    await sair();
+    navigate('/login', { replace: true });
+  };
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={containerRef} className="relative">
       <button
-        ref={botaoRef}
+        ref={gatilhoRef}
         type="button"
         aria-expanded={aberto}
         aria-controls={painelId}
-        onClick={() => setAberto((v) => !v)}
+        onClick={alternar}
         className="flex items-center gap-2 rounded-full p-1 pr-2 transition-colors hover:bg-surface"
       >
-        <span aria-hidden className="grid h-9 w-9 place-items-center rounded-full bg-lilac/90 text-onprimary">
-          <User size={18} />
-        </span>
+        <Avatar nome={usuario.nome} tamanho="md" />
         <span className="hidden text-sm font-medium sm:block">
           <span className="sr-only">Conta de </span>
-          {nome}
+          {primeiroNome}
         </span>
         <ChevronDown
           size={14}
           aria-hidden
-          className={cn('text-muted transition-transform', aberto && 'rotate-180')}
+          className={cn('text-muted transition-transform duration-200', aberto && 'rotate-180')}
         />
       </button>
 
       {aberto && (
-        <nav
+        <div
           id={painelId}
-          aria-label="Conta"
-          className="animate-entrada absolute right-0 top-full z-50 mt-2 w-64 rounded-xl border border-line bg-surface p-1.5 shadow-xl"
+          className="absolute right-0 top-full z-50 mt-2 w-64 animate-pop-in rounded-xl border border-line bg-surface p-1.5 shadow-popover"
         >
-          <ul>
-            {itens.map(({ rotulo, to, icone: Icone }) => (
-              <li key={to}>
-                <Link
-                  to={to}
-                  onClick={() => setAberto(false)}
-                  className="flex min-h-10 items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-muted transition-colors hover:bg-surface2 hover:text-ink"
-                >
-                  <Icone size={16} aria-hidden />
-                  {rotulo}
+          <div className="border-b border-line px-3 pb-3 pt-2">
+            <p className="truncate text-sm font-semibold text-ink">{usuario.nome}</p>
+            <p className="truncate text-xs text-muted">{usuario.email}</p>
+            <p className="mt-1 text-xs text-subtle">
+              {NOME_PAPEL[usuario.papel]} · {usuario.empresa?.nome}
+            </p>
+          </div>
+          <nav aria-label="Conta" className="pt-1.5">
+            <ul>
+              <li>
+                <Link to="/perfil" onClick={() => setAberto(false)} className={classeItem}>
+                  <UserRound size={16} aria-hidden />
+                  Meu perfil
                 </Link>
               </li>
-            ))}
-          </ul>
-        </nav>
+              {ehGestor && (
+                <li>
+                  {admin ? (
+                    <Link to="/" onClick={() => setAberto(false)} className={classeItem}>
+                      <GraduationCap size={16} aria-hidden />
+                      Ir para a área do aluno
+                    </Link>
+                  ) : (
+                    <Link to={inicioAdmin(pode)} onClick={() => setAberto(false)} className={classeItem}>
+                      <LayoutDashboard size={16} aria-hidden />
+                      Ir para o painel da empresa
+                    </Link>
+                  )}
+                </li>
+              )}
+              <li className="mt-1.5 border-t border-line pt-1.5">
+                <button type="button" onClick={fazerLogout} className={cn(classeItem, 'hover:text-danger')}>
+                  <LogOut size={16} aria-hidden />
+                  Sair
+                </button>
+              </li>
+            </ul>
+          </nav>
+        </div>
       )}
     </div>
   );

@@ -14,8 +14,9 @@ const PALETA = [
 const TAMANHOS = {
   xs: 'h-6 w-6 text-xs',
   sm: 'h-8 w-8 text-xs',
-  md: 'h-10 w-10 text-xs',
+  md: 'h-9 w-9 text-xs',
   lg: 'h-12 w-12 text-sm',
+  xl: 'h-16 w-16 text-lg',
 };
 
 /** Hash simples e determinístico: o mesmo nome sempre gera a mesma cor. */

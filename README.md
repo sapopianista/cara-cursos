@@ -1,46 +1,98 @@
 # Cara Cursos — Front-end
 
-React + Tailwind CSS (v3) + Lucide React + React Router. Dark Mode por padrão (com alternância para tema claro).
+Plataforma de educação corporativa: área do aluno (cursos, trilhas, sala de aula, progresso) e painel da empresa
+(colaboradores, relatórios, gestores, faturamento, configurações).
+
+React 19 · React Router 7 · Tailwind CSS 3 · Lucide · Vite. Testes com Vitest + Testing Library + axe.
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173
-npm run build
+npm run dev          # http://localhost:5173
+npm run build        # gera dist/
+npm test             # testes (unitários, componentes, fluxos e acessibilidade)
+npm run lint         # ESLint
+npm run format       # Prettier
 ```
 
-## Estrutura de pastas
+## Rodando sem backend (modo demonstração)
+
+Com `VITE_USAR_MOCK=true` (padrão), todas as chamadas vão para `src/services/mock/`, um "banco" em memória com o
+**mesmo formato** que a API real deve devolver. Criar, editar e excluir funciona durante a sessão (recarregar a
+página restaura os dados).
+
+No login aparecem as contas de demonstração (qualquer senha com 6+ caracteres):
+
+| E-mail                    | Perfil                                       |
+| ------------------------- | -------------------------------------------- |
+| `tiago.vieira@oscorp.com` | Administrador — área do aluno + painel da empresa |
+| `ana.silveira@oscorp.com` | Colaboradora — somente área do aluno         |
+
+Os vídeos das aulas usam um arquivo de demonstração de domínio público. Downloads (certificados, notas fiscais,
+relatórios, materiais) aparecem como "Arquivo indisponível" porque o mock não gera arquivos — com a API real,
+basta ela enviar a `url` do arquivo.
+
+## Conectando o backend Java
+
+1. `cp .env.example .env` e defina `VITE_USAR_MOCK=false`.
+2. Em desenvolvimento, `/api` é redirecionado para `http://localhost:8080` (ver `vite.config.js`). Em produção,
+   defina `VITE_API_URL` com a URL pública da API.
+3. Implemente os endpoints descritos em **[docs/API.md](docs/API.md)**. Nenhum componente precisa mudar.
+
+Convenções esperadas do backend (detalhes em `docs/API.md`):
+
+- Autenticação por **Bearer token** (`Authorization: Bearer …`). Resposta `401` encerra a sessão no front.
+- Datas em **ISO 8601**, durações em minutos/segundos, dinheiro em **centavos** (inteiro), enums em minúsculas.
+- Listas paginadas: `{ itens, total, pagina, porPagina, totalPaginas }`.
+- Erros: `{ "mensagem": "...", "codigo": "...", "campos": { "email": "..." } }` — `campos` aparece embaixo de cada
+  campo do formulário.
+
+## Estrutura
 
 ```
 src/
-├── main.jsx                  # entry point (BrowserRouter)
-├── App.jsx                   # tabela de rotas
-├── index.css                 # tokens de cor (dark/light) + base Tailwind
+├── main.jsx                 # roteador + provedores (tema, toasts, sessão)
+├── App.jsx                  # tabela de rotas (lazy por tela, proteção, redirecionamentos)
+├── index.css                # tokens de cor (dark/light) e utilitários (skeleton, card interativo, tabela responsiva)
 ├── config/
-│   └── navigation.js         # itens dos menus laterais (aluno e RH)
+│   ├── ambiente.js          # variáveis de ambiente (único lugar que lê import.meta.env)
+│   └── navigation.js        # menus do aluno e do painel (com permissões)
+├── context/                 # AuthContext (sessão/permissões), TemaContext, ToastContext
+├── hooks/                   # useApi (carregar), useMutacao (enviar), utilitários (debounce, título, popover…)
+├── services/
+│   ├── api.js               # ÚNICO ponto que fala com o backend (cada função = 1 endpoint)
+│   ├── http.js              # fetch com token, timeout, erros tipados (ErroApi) e download de arquivos
+│   └── mock/                # db.js (dados) + handlers.js (implementação simulada dos endpoints)
+├── lib/                     # formatadores (moeda, datas…), validação, rótulos/vocabulário, CSV
 ├── components/
-│   ├── layout/               # AppLayout, Sidebar, TopNavigation, UserMenu, ThemeToggle, Logo
-│   ├── ui/                   # genéricos: Card, ProgressBar, DonutChart, Badge, Thumbnail, SectionHeader
-│   └── dashboard/            # específicos do Dashboard do Aluno
-├── pages/                    # uma por rota (DashboardAluno, EmConstrucao...)
-├── hooks/                    # useApi (loading/erro), useTheme
-├── services/api.js           # ÚNICO ponto que fala com o backend (mock <-> fetch)
-├── data/                     # mock data (mesmo JSON que o Java deve devolver)
-└── lib/                      # cn(), mapa de ícones/cores
+│   ├── ui/                  # design system: Button, Campo*, Switch, Badge, Card, Modal, ConfirmDialog,
+│   │                        #   DataTable, Pagination, MenuAcoes, Accordion, StatCard, Pagina/Secao, Estados…
+│   ├── layout/              # AppLayout, Sidebar, TopNavigation, Notificacoes, UserMenu, Rotas (guardas)
+│   ├── cursos/              # CursoCard (card único de curso)
+│   ├── atividades/          # AtividadeCard (entrega de atividade)
+│   ├── sala/                # PlayerAula
+│   └── suporte/             # CentralSuporte (aluno e gestor)
+├── pages/
+│   ├── aluno/               # Inicio, explorar/*, Trilhas, Trilha, SalaDeAula, MeuProgresso, Perfil, Suporte
+│   ├── admin/               # VisaoGeral, Colaboradores, Relatorios, Gestores, Faturamento, Configuracoes, Ajuda
+│   ├── Login.jsx
+│   └── NaoEncontrada.jsx
+└── test/                    # setup, utilitários e testes de fluxo
 ```
 
-Telas futuras seguem o mesmo padrão: `pages/X.jsx` + `components/x/` + `data/x.js` + função em `services/api.js` + `<Route>` em `App.jsx`.
+### Criando uma tela nova
 
-## Integrando com o backend Java/JDBC
+1. Endpoint em `services/api.js` (+ implementação em `services/mock/handlers.js`).
+2. Página em `pages/…` usando `<Pagina>`, `useApi` e os componentes de `components/ui`.
+3. `<Route>` em `App.jsx` (com `RotaPermissao` se for do painel) e item em `config/navigation.js`.
 
-1. `cp .env.example .env` e defina `VITE_USAR_MOCK=false` (e `VITE_API_URL`).
-2. Implemente `GET /api/alunos/me/dashboard` devolvendo o JSON de `src/data/dashboardAluno.js`.
-3. Endpoints já previstos em `services/api.js`:
-   - `POST /api/atividades/{id}/entregas`
-   - `POST /api/cursos/{id}/favoritos`
+## Padrões de interface
 
-Nenhum componente precisa ser alterado: eles só recebem props.
-
-## Tema
-
-As cores são CSS variables (`src/index.css`) mapeadas em `tailwind.config.js`
-(`bg-surface`, `text-muted`, `bg-primary`, `text-accent`...). Para ajustar a paleta, edite apenas as variáveis.
+- **Carregamento:** `useApi` diferencia `carregando` (primeira vez → skeleton) de `atualizando` (troca de filtro →
+  conteúdo esmaecido, sem piscar a tela).
+- **Feedback:** sucesso e erro de ações vão para **toasts** (`useToast`); erros de validação ficam no campo.
+- **Ações destrutivas** (desativar, revogar, descartar) sempre passam por `ConfirmDialog`.
+- **Vocabulário:** textos de status e chamadas de ação ficam em `lib/rotulos.js` (Começar → Continuar → Revisar).
+- **Tema:** cores são CSS variables em `index.css`, mapeadas no `tailwind.config.js` (`bg-surface`, `text-muted`,
+  `bg-primary`…). Para ajustar a paleta, edite só as variáveis.
+- **Acessibilidade:** foco visível, navegação por teclado (menus, modais com foco preso, abas), rótulos ligados aos
+  campos, `prefers-reduced-motion` respeitado. Os testes rodam o axe nas telas principais.

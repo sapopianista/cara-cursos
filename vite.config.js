@@ -4,10 +4,15 @@ import react from '@vitejs/plugin-react';
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Quando o backend Java estiver no ar, as chamadas /api serão
-    // redirecionadas para ele (evita problemas de CORS em desenvolvimento).
+    // Em desenvolvimento, /api é redirecionado para o backend Java (evita CORS).
     proxy: {
       '/api': 'http://localhost:8080',
     },
+  },
+  test: {
+    environment: 'jsdom',
+    globals: true,
+    setupFiles: ['./src/test/setup.js'],
+    css: false,
   },
 });
