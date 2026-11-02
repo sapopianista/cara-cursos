@@ -10,7 +10,8 @@
   <packaging>war</packaging>
 
   <properties>
-    <maven.compiler.release>25</maven.compiler.release>
+    <!-- Compila para Java 21 (LTS): roda no JDK 21 e em qualquer versão mais nova. -->
+    <maven.compiler.release>21</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
   </properties>
 

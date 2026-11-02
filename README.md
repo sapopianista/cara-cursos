@@ -33,7 +33,7 @@ basta ela enviar a `url` do arquivo.
 
 ## Conectando o backend Java
 
-O backend fica em **[backend/](backend/README.md)** e requer **JDK 25**, a versão LTS mais recente, e MySQL 8.
+O backend fica em **[backend/](backend/README.md)** e requer **JDK 21** ou mais novo (o código compila para Java 21) e MySQL 8.
 O Maven vem junto (`backend/mvnw.cmd`). O WAR continua compatível com Tomcat 10.1.
 
 1. Crie a base com `backend/sql/cara_cursos.sql` e suba a API: `cd backend && .\mvnw.cmd jetty:run`

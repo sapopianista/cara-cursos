@@ -1,11 +1,12 @@
-# Cara Cursos — API (Java 25 + JDBC + Servlets)
+# Cara Cursos — API (Java 21 + JDBC + Servlets)
 
 API REST consumida pelo frontend React (pasta raiz). O contrato está em [`../docs/API.md`](../docs/API.md)
 e o andamento do projeto em [`PLANO.md`](PLANO.md).
 
 ## Pré-requisitos
 
-- **JDK 25** (`java -version` deve mostrar 25). O Maven não precisa ser instalado: use `mvnw`.
+- **JDK 21** ou mais novo (`java -version` deve mostrar 21+). O código é compilado para Java 21, então não use
+  recursos de versões posteriores. O Maven não precisa ser instalado: use `mvnw`, que usa o JDK do `JAVA_HOME`.
 - **MySQL 8.0.19+**.
 
 ## 1. Criar a base de dados
