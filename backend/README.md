@@ -1,11 +1,12 @@
-# Cara Cursos — API (Java 25 + JDBC + Servlets)
+# Cara Cursos — API (Java 21 + JDBC + Servlets)
 
 API REST consumida pelo frontend React (pasta raiz). O contrato está em [`../docs/API.md`](../docs/API.md)
 e o andamento do projeto em [`PLANO.md`](PLANO.md).
 
 ## Pré-requisitos
 
-- **JDK 25** (`java -version` deve mostrar 25). O Maven não precisa ser instalado: use `mvnw`.
+- **JDK 21** ou mais novo (`java -version` deve mostrar 21+). O código é compilado para Java 21, então não use
+  recursos de versões posteriores. O Maven não precisa ser instalado: use `mvnw`, que usa o JDK do `JAVA_HOME`.
 - **MySQL 8.0.19+**.
 
 ## 1. Criar a base de dados
@@ -70,10 +71,10 @@ usuário MySQL próprio da aplicação (o script tem o `CREATE USER` comentado).
 ```
 src/main/java/br/com/caracursos/
   http/        Api (processa a requisição), ApiServlet, Roteador, Requisicao, Json, Pagina, ApiException
-  recursos/    rotas por módulo: Auth, Catalogo, Trilha, Sala, Aluno, Notificacao, Colaborador, Dashboard
+  recursos/    rotas por módulo: Auth, Catalogo, Trilha, Sala, Aluno, Notificacao, Colaborador, Dashboard, Gestor, Suporte, Configuracao
   dao/         acesso ao banco com JDBC puro (PreparedStatement) + ConexaoFactory
   model/       Usuario, Curso, Matricula, CursoResumo
   seguranca/   Senhas (PBKDF2), Tokens (sessão), Permissao (papéis)
-  util/        Csv (exportação para Excel), CertificadoPdf (PDF sem bibliotecas), Relogio
+  util/        Csv (exportação para Excel), CertificadoPdf (PDF sem bibliotecas), Cnpj, Relogio
 sql/cara_cursos.sql   esquema + dados de teste
 ```

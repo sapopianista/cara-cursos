@@ -21,7 +21,7 @@ USE cara_cursos;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON cara_cursos.* TO 'caracursos'@'localhost';
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS notificacoes, certificados, entregas, atividades, materiais,
+DROP TABLE IF EXISTS chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
   progresso_aulas, aulas, matriculas, nivel_cursos, niveis, trilha_cursos, trilhas,
   cursos, areas, categorias, sessoes, usuarios, cargos, departamentos, empresa;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -33,8 +33,16 @@ CREATE TABLE empresa (
   id                   INT UNSIGNED      NOT NULL,
   nome_fantasia        VARCHAR(120)      NOT NULL,
   razao_social         VARCHAR(160)      NOT NULL,
-  cnpj                 CHAR(18)          NOT NULL,
+  cnpj                 CHAR(18)          NOT NULL,  -- formatado: 00.000.000/0000-00
   licencas_contratadas SMALLINT UNSIGNED NOT NULL,
+  -- Configurações (tela Configurações do painel)
+  email_notificacao    VARCHAR(160)      NOT NULL,
+  fuso_horario         VARCHAR(40)       NOT NULL DEFAULT 'America/Sao_Paulo',
+  dominios_autorizados VARCHAR(300)      NOT NULL DEFAULT '',  -- separados por ", "
+  exigir_presenca_minima      BOOLEAN    NOT NULL DEFAULT TRUE,
+  certificacao_automatica     BOOLEAN    NOT NULL DEFAULT TRUE,
+  permitir_download_materiais BOOLEAN    NOT NULL DEFAULT TRUE,
+  exigir_2fa                  BOOLEAN    NOT NULL DEFAULT FALSE,
   CONSTRAINT pk_empresa PRIMARY KEY (id)
 ) ENGINE = InnoDB;
 
@@ -88,6 +96,35 @@ CREATE TABLE sessoes (
   CONSTRAINT pk_sessoes PRIMARY KEY (token_hash),
   CONSTRAINT fk_sessoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
   INDEX ix_sessoes_criada_em (criada_em)
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------
+-- Gestores: quem tem acesso ao painel da empresa.
+-- O papel continua em usuarios.tipo_perfil (é o que o backend confere a cada requisição);
+-- esta tabela guarda só os dados do convite. Todo usuário com tipo_perfil diferente de
+-- 'colaborador' tem uma linha aqui. O convite conta como aceito quando a pessoa entra
+-- depois dele (ultimo_acesso >= convidado_em); até lá o gestor aparece como 'pendente'.
+-- ---------------------------------------------------------------------
+CREATE TABLE gestores (
+  id_usuario   INT UNSIGNED NOT NULL,
+  convidado_em DATETIME     NOT NULL,
+  mfa_ativo    BOOLEAN      NOT NULL DEFAULT FALSE,
+  CONSTRAINT pk_gestores PRIMARY KEY (id_usuario),
+  CONSTRAINT fk_gestores_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- Registro das alterações de acesso. O nome do autor é copiado para o histórico
+-- continuar legível mesmo se o usuário for removido.
+CREATE TABLE auditoria (
+  id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  acao      VARCHAR(80)  NOT NULL,
+  descricao VARCHAR(300) NOT NULL,
+  id_autor  INT UNSIGNED NULL,
+  autor     VARCHAR(120) NOT NULL,
+  criado_em DATETIME     NOT NULL,
+  CONSTRAINT pk_auditoria PRIMARY KEY (id),
+  CONSTRAINT fk_auditoria_autor FOREIGN KEY (id_autor) REFERENCES usuarios (id) ON DELETE SET NULL,
+  INDEX ix_auditoria_criado_em (criado_em)
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------
@@ -282,6 +319,37 @@ CREATE TABLE notificacoes (
   INDEX ix_notificacoes_usuario (id_usuario, criada_em)
 ) ENGINE = InnoDB;
 
+-- ---------------------------------------------------------------------
+-- Suporte. escopo 'aluno' = área do aluno; 'gestor' = Ajuda do painel da empresa.
+-- ---------------------------------------------------------------------
+CREATE TABLE faq (
+  id       INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  escopo   ENUM('aluno', 'gestor') NOT NULL,
+  ordem    TINYINT UNSIGNED NOT NULL,
+  pergunta VARCHAR(200)     NOT NULL,
+  resposta VARCHAR(600)     NOT NULL,
+  CONSTRAINT pk_faq PRIMARY KEY (id),
+  INDEX ix_faq_escopo (escopo, ordem)
+) ENGINE = InnoDB;
+
+-- Chamados do aluno são vistos só por quem abriu; os do gestor, por todos os gestores.
+CREATE TABLE chamados (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_usuario    INT UNSIGNED NOT NULL,
+  escopo        ENUM('aluno', 'gestor') NOT NULL,
+  assunto       VARCHAR(80)  NOT NULL,
+  titulo        VARCHAR(150) NOT NULL,
+  id_curso      INT UNSIGNED NULL,
+  descricao     TEXT         NOT NULL,
+  status        ENUM('em_analise', 'respondido', 'resolvido') NOT NULL DEFAULT 'em_analise',
+  criado_em     DATETIME     NOT NULL,
+  atualizado_em DATETIME     NOT NULL,
+  CONSTRAINT pk_chamados PRIMARY KEY (id),
+  CONSTRAINT fk_chamados_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
+  CONSTRAINT fk_chamados_curso FOREIGN KEY (id_curso) REFERENCES cursos (id) ON DELETE SET NULL,
+  INDEX ix_chamados_escopo (escopo, atualizado_em)
+) ENGINE = InnoDB;
+
 -- =====================================================================
 -- DADOS DE TESTE
 -- Gerados a partir dos dados de demonstração do frontend (src/services/mock/db.js),
@@ -289,8 +357,10 @@ CREATE TABLE notificacoes (
 -- Contas ativas usam a senha: demo1234
 -- =====================================================================
 
-INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas) VALUES
-  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30);
+INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas, email_notificacao,
+                     fuso_horario, dominios_autorizados, exigir_2fa) VALUES
+  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30, 'educacao@oscorp.com',
+   'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com', TRUE);
 
 INSERT INTO departamentos (nome) VALUES
   ('Financeiro'),
@@ -1465,3 +1535,32 @@ INSERT INTO notificacoes (id_usuario, titulo, descricao, link, lida, criada_em) 
   (102, 'Atividade vence em 2 dias', 'Aplicar a Matriz de Eisenhower na sua semana', '/cursos/2', FALSE, UTC_TIMESTAMP() - INTERVAL 60 MINUTE),
   (102, 'Novo curso em destaque', 'IA Generativa para Produtividade já está disponível.', '/cursos/12', FALSE, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
   (102, 'Chamado respondido', 'A equipe respondeu o chamado #4109.', '/suporte', TRUE, UTC_TIMESTAMP() - INTERVAL 2880 MINUTE);
+
+-- Rodrigo foi convidado depois do último acesso: aparece como convite pendente.
+INSERT INTO gestores (id_usuario, convidado_em, mfa_ativo) VALUES
+  (101, UTC_TIMESTAMP() - INTERVAL 288000 MINUTE, TRUE),
+  (103, UTC_TIMESTAMP() - INTERVAL 244800 MINUTE, TRUE),
+  (104, UTC_TIMESTAMP() - INTERVAL 201600 MINUTE, TRUE),
+  (111, UTC_TIMESTAMP() - INTERVAL 158400 MINUTE, FALSE),
+  (105, UTC_TIMESTAMP() - INTERVAL 100 MINUTE, FALSE);
+
+INSERT INTO auditoria (acao, descricao, id_autor, autor, criado_em) VALUES
+  ('Permissão alterada', 'Beatriz Albuquerque definiu Juliana Mendonça como Líder de equipe.', 103, 'Beatriz Albuquerque', UTC_TIMESTAMP() - INTERVAL 360 MINUTE),
+  ('Certificado SSO renovado', 'Tiago Vieira fez a rotação do certificado SAML.', 101, 'Tiago Vieira', UTC_TIMESTAMP() - INTERVAL 120 MINUTE),
+  ('Convite enviado', 'Tiago Vieira convidou Rodrigo Caetano como Financeiro.', 101, 'Tiago Vieira', UTC_TIMESTAMP() - INTERVAL 100 MINUTE);
+
+INSERT INTO faq (id, escopo, ordem, pergunta, resposta) VALUES
+  (1, 'aluno', 1, 'Como emito meu certificado?', 'Ao concluir todas as aulas e atingir nota mínima 7,0 nas avaliações, o certificado aparece em Meu progresso → Certificados.'),
+  (2, 'aluno', 2, 'Posso refazer uma avaliação?', 'Sim, até 3 tentativas por módulo. Revise o material de apoio antes de tentar novamente.'),
+  (3, 'aluno', 3, 'Minhas horas aparecem para o RH?', 'Sim. Cada curso concluído é sincronizado com o RH em até 24 horas úteis.'),
+  (4, 'aluno', 4, 'O vídeo está travando. O que faço?', 'Reduza a qualidade no menu do player. Se continuar, abra um chamado informando o horário e o curso.'),
+  (11, 'gestor', 1, 'Como gero o relatório de horas de treinamento?', 'Em Relatórios, escolha "Conclusão de cursos e trilhas", defina o período e clique em Gerar. O arquivo fica disponível no histórico.'),
+  (12, 'gestor', 2, 'Como exporto a lista de colaboradores?', 'Em Colaboradores, aplique os filtros desejados e use "Exportar CSV". O arquivo respeita a busca e o status selecionados.'),
+  (13, 'gestor', 3, 'Como revogo o acesso de alguém desligado?', 'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.'),
+  (14, 'gestor', 4, 'Como exijo 2FA para gestores?', 'Em Configurações → Segurança, ative "Exigir autenticação em duas etapas" e salve.');
+
+INSERT INTO chamados (id, id_usuario, escopo, assunto, titulo, id_curso, descricao, status, criado_em, atualizado_em) VALUES
+  (3984, 101, 'aluno', 'Certificado', 'Validação de certificado de conclusão', 11, 'O QR code do certificado não abre a página de validação.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 31680 MINUTE, UTC_TIMESTAMP() - INTERVAL 28800 MINUTE),
+  (4109, 101, 'aluno', 'Dúvida sobre o conteúdo', 'Exercício prático do módulo 2', 1, 'Não entendi o que o exercício pede no segundo item.', 'respondido', UTC_TIMESTAMP() - INTERVAL 4320 MINUTE, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
+  (8120, 103, 'gestor', 'Faturamento e licenças', 'Liberação de licenças para Tecnologia', NULL, 'Precisamos de 5 licenças a mais para a equipe de Tecnologia.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 20160 MINUTE, UTC_TIMESTAMP() - INTERVAL 17280 MINUTE),
+  (8492, 101, 'gestor', 'Integrações e API', 'Webhook de conclusão de curso', NULL, 'Queremos receber um webhook quando alguém concluir um curso.', 'em_analise', UTC_TIMESTAMP() - INTERVAL 180 MINUTE, UTC_TIMESTAMP() - INTERVAL 180 MINUTE);

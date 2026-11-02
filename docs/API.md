@@ -63,7 +63,8 @@ O backend **deve** aplicar as mesmas regras (o front só esconde o que não é p
 ```
 `identificador` é o e-mail corporativo (sem diferenciar maiúsculas). `lembrar: true` → sessão de 30 dias;
 senão, 12 horas. `422` com `campos` se faltar e-mail ou senha · `401` credenciais inválidas (mesma mensagem para
-e-mail inexistente, senha errada ou convite ainda não aceito) · `403` acesso desativado.
+e-mail inexistente, senha errada ou convite ainda não aceito) · `403` acesso desativado ·
+`429 MUITAS_TENTATIVAS` depois de 5 senhas erradas para o mesmo e-mail em 15 minutos (até a janela acabar).
 
 ### `GET /auth/me` → `Usuario`
 Usado ao recarregar a página para validar o token salvo.
@@ -212,6 +213,9 @@ Chamado a cada ~15 s de vídeo, ao pausar e ao sair da aula.
 ### `POST /suporte/chamados`
 `{ escopo, assunto, titulo, cursoId?, descricao }` → chamado criado. `422` com `campos` para validação.
 
+O escopo `gestor` exige um papel de gestão (`403` para colaborador). No escopo `aluno` cada pessoa vê só os próprios
+chamados; no `gestor`, os chamados de todos os gestores da empresa.
+
 ## Painel da empresa
 
 ### `GET /admin/dashboard?periodo=7dias|30dias|trimestre`
@@ -256,7 +260,12 @@ Regras: e-mail único (`422`, `campos.email`); sem licença livre → `409 SEM_L
 ```ts
 Gestor = { id, colaboradorId, nome, email, departamento, papel, mfaAtivo, status: 'ativo'|'pendente', convidadoEm, ultimoAcesso | null }
 ```
-Regras: sempre ao menos um `admin` ativo (`409`); ninguém revoga o próprio acesso; toda alteração gera auditoria.
+Regras: sempre ao menos um `admin` ativo (`409 ULTIMO_ADMIN`); ninguém revoga o próprio acesso (`409 PROPRIO_ACESSO`);
+toda alteração gera auditoria.
+
+No backend Java, `id` = `colaboradorId` (o papel fica em `usuarios.tipo_perfil`). O papel vale assim que o convite é
+feito; o gestor fica `pendente` até entrar no sistema depois do convite, e reenviar o convite de quem já entrou dá
+`409 CONVITE_ACEITO`. O e-mail do convite ainda não é enviado (depende de SMTP).
 
 ### Relatórios
 - `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'xlsx'|'csv' }[], departamentos: string[], historico: Relatorio[] }`
@@ -294,3 +303,6 @@ A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 
 }
 ```
 Validar CNPJ (dígitos verificadores) e e-mail; responder `422` com `campos.cnpj` / `campos.emailNotificacao`.
+Papéis: admin e rh. O backend Java também valida `nomeFantasia`, `razaoSocial`, `fusoHorario` (os de `FUSOS_HORARIOS`)
+e `dominiosAutorizados`; devolve o CNPJ com máscara e os domínios normalizados (minúsculas, sem repetição).
+Política ausente no corpo mantém o valor atual. Cada alteração entra na auditoria.

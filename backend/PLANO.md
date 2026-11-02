@@ -8,7 +8,7 @@ Cada etapa termina com algo verificável; só avance quando o critério de "pron
 
 | Tema | Escolha | Motivo |
 |---|---|---|
-| Java / servidor | JDK 25 + **Tomcat 10.1** (produção) · Jetty 12 via Maven (desenvolvimento) | Java 25 é a LTS mais recente; Servlets 6 (`jakarta.servlet`) roda nos dois. |
+| Java / servidor | JDK 21+ + **Tomcat 10.1** (produção) · Jetty 12 via Maven (desenvolvimento) | O código compila para Java 21 (LTS), a versão usada na faculdade, e roda também no 25; Servlets 6 (`jakarta.servlet`) roda nos dois. |
 | Build | **Maven** (`pom.xml`, `mvnw`) | Gera o `api.war` e baixa as dependências. |
 | JSON | **Gson** | Única dependência além do driver. `null` é escrito; datas em ISO 8601 UTC. |
 | Rotas | Um servlet (`ApiServlet`) + `Roteador` próprio | Evita dezenas de servlets e centraliza autenticação, permissão e erros. |
@@ -23,7 +23,7 @@ Cada etapa termina com algo verificável; só avance quando o critério de "pron
 - [x] Driver `mysql-connector-j 9.1.0`, Gson e JUnit no `pom.xml`.
 - [x] Script validado num MySQL 8.0.46 real.
 - [ ] **Pendente (você):** executar o script no seu MySQL e configurar `DB_USUARIO`/`DB_SENHA`.
-- [ ] **Pendente (você):** instalar o JDK 25 (o atalho `C:\Program Files\Java\latest\jdk-25` aponta para uma pasta que não existe).
+- [x] JDK 21 (`C:\Program Files\Java\jdk-21.0.12.1`); `JAVA_HOME` deve apontar para ele.
 
 ## Etapa 1 — Camada de dados ✅
 
@@ -62,9 +62,12 @@ Escopo decidido para esta fase (tudo que o aluno usa e o núcleo do painel):
 | Notificações | `/notificacoes` (+ leitura) | ✅ backend |
 | Colaboradores | `/admin/colaboradores/*` (CRUD, status, licenças, progresso, CSV) | ✅ backend |
 | Visão geral | `/admin/dashboard` | ✅ backend |
-| Suporte, Gestores, Relatórios, Faturamento, Configurações | — | ⏳ mock (Etapa 7) |
+| Gestores e auditoria | `/admin/gestores/*`, `/admin/auditoria` | ✅ backend |
+| Suporte | `/suporte`, `/suporte/chamados` | ✅ backend |
+| Configurações | `/admin/configuracoes` | ✅ backend |
+| Relatórios, Faturamento | — | ⏳ mock (Etapa 7) |
 
-**Pronto:** os 32 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
+**Pronto:** os 46 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
 funciona com `VITE_USAR_MOCK=false`.
 
 ## Etapa 5 — Escopo do frontend com o banco ✅
@@ -81,7 +84,9 @@ funciona com `VITE_USAR_MOCK=false`.
 - [x] Logs com `java.util.logging`; senhas e tokens nunca são registrados.
 - [x] `README.md` do backend.
 - [ ] Pool de conexões (JNDI do Tomcat / `context.xml`) em vez de `DriverManager` por requisição.
-- [ ] Limite de tentativas de login (por e-mail/IP) contra força bruta.
+- [x] Limite de tentativas de login (`seguranca/LimiteLogin`): 5 falhas por e-mail em 15 min → `429`. Fica em
+  memória (uma instância da API). Como é por e-mail, alguém pode travar a conta de outra pessoa por 15 min;
+  um limite por IP (atrás de proxy, via `X-Forwarded-For`) seria o complemento.
 
 ## Etapa 7 — Próxima fase: módulos que ficaram no mock
 
@@ -89,10 +94,12 @@ Ficaram de fora porque dependem de serviços externos ou de regras que ainda nã
 
 1. **Convite de colaboradores** — e-mail com link para definir a senha (hoje o cadastro fica `pendente`
    e não consegue entrar). Precisa de SMTP.
-2. **Gestores e permissões** — já é só `usuarios.tipo_perfil` + uma tabela `auditoria`; é o mais barato.
-3. **Suporte** — tabelas `chamados` e `faq`.
+2. ~~**Gestores e permissões**~~ ✅ — tabelas `gestores` (dados do convite) e `auditoria`; o papel continua em
+   `usuarios.tipo_perfil`. Falta só o e-mail do convite (item 1).
+3. ~~**Suporte**~~ ✅ — tabelas `chamados` e `faq`. A resposta da equipe ainda é manual (direto no banco).
 4. **Relatórios** — geração assíncrona de arquivos (fila + armazenamento).
-5. **Configurações** — tabela `empresa` já existe; faltam colunas de políticas e validação de CNPJ no Java.
+5. ~~**Configurações**~~ ✅ — colunas novas em `empresa` e validação de CNPJ (`util/Cnpj`). As políticas são
+   guardadas, mas ainda não aplicadas (ex.: `exigir2FA` não bloqueia nada, porque não há 2FA).
 6. **Faturamento** — depende do sistema de cobrança/notas fiscais.
 
 ## Pendências e riscos
