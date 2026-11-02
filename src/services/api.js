@@ -18,7 +18,6 @@ import * as mock from './mock/handlers';
  */
 export const MODULOS_SO_NO_MOCK = new Set([
   'suporte',
-  'gestores',
   'relatorios',
   'faturamento',
   'configuracoes',

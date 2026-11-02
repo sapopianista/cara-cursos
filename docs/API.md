@@ -256,7 +256,12 @@ Regras: e-mail único (`422`, `campos.email`); sem licença livre → `409 SEM_L
 ```ts
 Gestor = { id, colaboradorId, nome, email, departamento, papel, mfaAtivo, status: 'ativo'|'pendente', convidadoEm, ultimoAcesso | null }
 ```
-Regras: sempre ao menos um `admin` ativo (`409`); ninguém revoga o próprio acesso; toda alteração gera auditoria.
+Regras: sempre ao menos um `admin` ativo (`409 ULTIMO_ADMIN`); ninguém revoga o próprio acesso (`409 PROPRIO_ACESSO`);
+toda alteração gera auditoria.
+
+No backend Java, `id` = `colaboradorId` (o papel fica em `usuarios.tipo_perfil`). O papel vale assim que o convite é
+feito; o gestor fica `pendente` até entrar no sistema depois do convite, e reenviar o convite de quem já entrou dá
+`409 CONVITE_ACEITO`. O e-mail do convite ainda não é enviado (depende de SMTP).
 
 ### Relatórios
 - `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'xlsx'|'csv' }[], departamentos: string[], historico: Relatorio[] }`

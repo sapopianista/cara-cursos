@@ -14,7 +14,8 @@ public enum Permissao {
     /** Qualquer usuário autenticado (área do aluno). */
     AUTENTICADO(EnumSet.allOf(TipoPerfil.class)),
     ADMIN_VISAO(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER)),
-    ADMIN_COLABORADORES(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER));
+    ADMIN_COLABORADORES(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER)),
+    ADMIN_GESTORES(EnumSet.of(TipoPerfil.ADMIN));
 
     private final Set<TipoPerfil> perfis;
 

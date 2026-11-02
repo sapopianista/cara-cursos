@@ -21,7 +21,7 @@ USE cara_cursos;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON cara_cursos.* TO 'caracursos'@'localhost';
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS notificacoes, certificados, entregas, atividades, materiais,
+DROP TABLE IF EXISTS auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
   progresso_aulas, aulas, matriculas, nivel_cursos, niveis, trilha_cursos, trilhas,
   cursos, areas, categorias, sessoes, usuarios, cargos, departamentos, empresa;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -88,6 +88,35 @@ CREATE TABLE sessoes (
   CONSTRAINT pk_sessoes PRIMARY KEY (token_hash),
   CONSTRAINT fk_sessoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
   INDEX ix_sessoes_criada_em (criada_em)
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------
+-- Gestores: quem tem acesso ao painel da empresa.
+-- O papel continua em usuarios.tipo_perfil (é o que o backend confere a cada requisição);
+-- esta tabela guarda só os dados do convite. Todo usuário com tipo_perfil diferente de
+-- 'colaborador' tem uma linha aqui. O convite conta como aceito quando a pessoa entra
+-- depois dele (ultimo_acesso >= convidado_em); até lá o gestor aparece como 'pendente'.
+-- ---------------------------------------------------------------------
+CREATE TABLE gestores (
+  id_usuario   INT UNSIGNED NOT NULL,
+  convidado_em DATETIME     NOT NULL,
+  mfa_ativo    BOOLEAN      NOT NULL DEFAULT FALSE,
+  CONSTRAINT pk_gestores PRIMARY KEY (id_usuario),
+  CONSTRAINT fk_gestores_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE
+) ENGINE = InnoDB;
+
+-- Registro das alterações de acesso. O nome do autor é copiado para o histórico
+-- continuar legível mesmo se o usuário for removido.
+CREATE TABLE auditoria (
+  id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  acao      VARCHAR(80)  NOT NULL,
+  descricao VARCHAR(300) NOT NULL,
+  id_autor  INT UNSIGNED NULL,
+  autor     VARCHAR(120) NOT NULL,
+  criado_em DATETIME     NOT NULL,
+  CONSTRAINT pk_auditoria PRIMARY KEY (id),
+  CONSTRAINT fk_auditoria_autor FOREIGN KEY (id_autor) REFERENCES usuarios (id) ON DELETE SET NULL,
+  INDEX ix_auditoria_criado_em (criado_em)
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------
@@ -1465,3 +1494,16 @@ INSERT INTO notificacoes (id_usuario, titulo, descricao, link, lida, criada_em) 
   (102, 'Atividade vence em 2 dias', 'Aplicar a Matriz de Eisenhower na sua semana', '/cursos/2', FALSE, UTC_TIMESTAMP() - INTERVAL 60 MINUTE),
   (102, 'Novo curso em destaque', 'IA Generativa para Produtividade já está disponível.', '/cursos/12', FALSE, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
   (102, 'Chamado respondido', 'A equipe respondeu o chamado #4109.', '/suporte', TRUE, UTC_TIMESTAMP() - INTERVAL 2880 MINUTE);
+
+-- Rodrigo foi convidado depois do último acesso: aparece como convite pendente.
+INSERT INTO gestores (id_usuario, convidado_em, mfa_ativo) VALUES
+  (101, UTC_TIMESTAMP() - INTERVAL 288000 MINUTE, TRUE),
+  (103, UTC_TIMESTAMP() - INTERVAL 244800 MINUTE, TRUE),
+  (104, UTC_TIMESTAMP() - INTERVAL 201600 MINUTE, TRUE),
+  (111, UTC_TIMESTAMP() - INTERVAL 158400 MINUTE, FALSE),
+  (105, UTC_TIMESTAMP() - INTERVAL 100 MINUTE, FALSE);
+
+INSERT INTO auditoria (acao, descricao, id_autor, autor, criado_em) VALUES
+  ('Permissão alterada', 'Beatriz Albuquerque definiu Juliana Mendonça como Líder de equipe.', 103, 'Beatriz Albuquerque', UTC_TIMESTAMP() - INTERVAL 360 MINUTE),
+  ('Certificado SSO renovado', 'Tiago Vieira fez a rotação do certificado SAML.', 101, 'Tiago Vieira', UTC_TIMESTAMP() - INTERVAL 120 MINUTE),
+  ('Convite enviado', 'Tiago Vieira convidou Rodrigo Caetano como Financeiro.', 101, 'Tiago Vieira', UTC_TIMESTAMP() - INTERVAL 100 MINUTE);
