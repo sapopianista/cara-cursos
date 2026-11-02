@@ -18,10 +18,22 @@ import br.com.caracursos.http.Pagina;
 import br.com.caracursos.seguranca.Senhas;
 import br.com.caracursos.seguranca.Tokens;
 import br.com.caracursos.util.CertificadoPdf;
+import br.com.caracursos.util.Cnpj;
 import br.com.caracursos.util.Csv;
 
 /** Testes que não precisam de banco. */
 class UnidadeTest {
+
+    @Test
+    void cnpjConfereDigitosEFormata() {
+        assertTrue(Cnpj.valido("11.222.333/0001-81"));
+        assertTrue(Cnpj.valido("11222333000181"));
+        assertFalse(Cnpj.valido("11.222.333/0001-82"));
+        assertFalse(Cnpj.valido("11.111.111/1111-11"));
+        assertFalse(Cnpj.valido("123"));
+        assertFalse(Cnpj.valido(null));
+        assertEquals("11.222.333/0001-81", Cnpj.formatar("11222333000181"));
+    }
 
     @Test
     void senhaConfereSoComOTextoCerto() {

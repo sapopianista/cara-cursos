@@ -302,3 +302,6 @@ A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 
 }
 ```
 Validar CNPJ (dígitos verificadores) e e-mail; responder `422` com `campos.cnpj` / `campos.emailNotificacao`.
+Papéis: admin e rh. O backend Java também valida `nomeFantasia`, `razaoSocial`, `fusoHorario` (os de `FUSOS_HORARIOS`)
+e `dominiosAutorizados`; devolve o CNPJ com máscara e os domínios normalizados (minúsculas, sem repetição).
+Política ausente no corpo mantém o valor atual. Cada alteração entra na auditoria.

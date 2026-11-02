@@ -64,9 +64,10 @@ Escopo decidido para esta fase (tudo que o aluno usa e o núcleo do painel):
 | Visão geral | `/admin/dashboard` | ✅ backend |
 | Gestores e auditoria | `/admin/gestores/*`, `/admin/auditoria` | ✅ backend |
 | Suporte | `/suporte`, `/suporte/chamados` | ✅ backend |
-| Relatórios, Faturamento, Configurações | — | ⏳ mock (Etapa 7) |
+| Configurações | `/admin/configuracoes` | ✅ backend |
+| Relatórios, Faturamento | — | ⏳ mock (Etapa 7) |
 
-**Pronto:** os 41 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
+**Pronto:** os 44 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
 funciona com `VITE_USAR_MOCK=false`.
 
 ## Etapa 5 — Escopo do frontend com o banco ✅
@@ -95,7 +96,8 @@ Ficaram de fora porque dependem de serviços externos ou de regras que ainda nã
    `usuarios.tipo_perfil`. Falta só o e-mail do convite (item 1).
 3. ~~**Suporte**~~ ✅ — tabelas `chamados` e `faq`. A resposta da equipe ainda é manual (direto no banco).
 4. **Relatórios** — geração assíncrona de arquivos (fila + armazenamento).
-5. **Configurações** — tabela `empresa` já existe; faltam colunas de políticas e validação de CNPJ no Java.
+5. ~~**Configurações**~~ ✅ — colunas novas em `empresa` e validação de CNPJ (`util/Cnpj`). As políticas são
+   guardadas, mas ainda não aplicadas (ex.: `exigir2FA` não bloqueia nada, porque não há 2FA).
 6. **Faturamento** — depende do sistema de cobrança/notas fiscais.
 
 ## Pendências e riscos

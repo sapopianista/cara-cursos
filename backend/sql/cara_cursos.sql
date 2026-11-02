@@ -33,8 +33,16 @@ CREATE TABLE empresa (
   id                   INT UNSIGNED      NOT NULL,
   nome_fantasia        VARCHAR(120)      NOT NULL,
   razao_social         VARCHAR(160)      NOT NULL,
-  cnpj                 CHAR(18)          NOT NULL,
+  cnpj                 CHAR(18)          NOT NULL,  -- formatado: 00.000.000/0000-00
   licencas_contratadas SMALLINT UNSIGNED NOT NULL,
+  -- Configurações (tela Configurações do painel)
+  email_notificacao    VARCHAR(160)      NOT NULL,
+  fuso_horario         VARCHAR(40)       NOT NULL DEFAULT 'America/Sao_Paulo',
+  dominios_autorizados VARCHAR(300)      NOT NULL DEFAULT '',  -- separados por ", "
+  exigir_presenca_minima      BOOLEAN    NOT NULL DEFAULT TRUE,
+  certificacao_automatica     BOOLEAN    NOT NULL DEFAULT TRUE,
+  permitir_download_materiais BOOLEAN    NOT NULL DEFAULT TRUE,
+  exigir_2fa                  BOOLEAN    NOT NULL DEFAULT FALSE,
   CONSTRAINT pk_empresa PRIMARY KEY (id)
 ) ENGINE = InnoDB;
 
@@ -349,8 +357,10 @@ CREATE TABLE chamados (
 -- Contas ativas usam a senha: demo1234
 -- =====================================================================
 
-INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas) VALUES
-  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30);
+INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas, email_notificacao,
+                     fuso_horario, dominios_autorizados, exigir_2fa) VALUES
+  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30, 'educacao@oscorp.com',
+   'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com', TRUE);
 
 INSERT INTO departamentos (nome) VALUES
   ('Financeiro'),
