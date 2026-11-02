@@ -17,6 +17,7 @@ import br.com.caracursos.recursos.DashboardRecurso;
 import br.com.caracursos.recursos.GestorRecurso;
 import br.com.caracursos.recursos.NotificacaoRecurso;
 import br.com.caracursos.recursos.SalaRecurso;
+import br.com.caracursos.recursos.SuporteRecurso;
 import br.com.caracursos.recursos.TrilhaRecurso;
 import br.com.caracursos.seguranca.Permissao;
 
@@ -54,6 +55,7 @@ public final class Api {
         new ColaboradorRecurso().registrar(roteador);
         new DashboardRecurso().registrar(roteador);
         new GestorRecurso().registrar(roteador);
+        new SuporteRecurso().registrar(roteador);
     }
 
     public Resposta processar(Pedido pedido) {

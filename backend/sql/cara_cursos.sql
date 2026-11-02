@@ -21,7 +21,7 @@ USE cara_cursos;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON cara_cursos.* TO 'caracursos'@'localhost';
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
+DROP TABLE IF EXISTS chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
   progresso_aulas, aulas, matriculas, nivel_cursos, niveis, trilha_cursos, trilhas,
   cursos, areas, categorias, sessoes, usuarios, cargos, departamentos, empresa;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -309,6 +309,37 @@ CREATE TABLE notificacoes (
   CONSTRAINT pk_notificacoes PRIMARY KEY (id),
   CONSTRAINT fk_notificacoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
   INDEX ix_notificacoes_usuario (id_usuario, criada_em)
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------
+-- Suporte. escopo 'aluno' = área do aluno; 'gestor' = Ajuda do painel da empresa.
+-- ---------------------------------------------------------------------
+CREATE TABLE faq (
+  id       INT UNSIGNED     NOT NULL AUTO_INCREMENT,
+  escopo   ENUM('aluno', 'gestor') NOT NULL,
+  ordem    TINYINT UNSIGNED NOT NULL,
+  pergunta VARCHAR(200)     NOT NULL,
+  resposta VARCHAR(600)     NOT NULL,
+  CONSTRAINT pk_faq PRIMARY KEY (id),
+  INDEX ix_faq_escopo (escopo, ordem)
+) ENGINE = InnoDB;
+
+-- Chamados do aluno são vistos só por quem abriu; os do gestor, por todos os gestores.
+CREATE TABLE chamados (
+  id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  id_usuario    INT UNSIGNED NOT NULL,
+  escopo        ENUM('aluno', 'gestor') NOT NULL,
+  assunto       VARCHAR(80)  NOT NULL,
+  titulo        VARCHAR(150) NOT NULL,
+  id_curso      INT UNSIGNED NULL,
+  descricao     TEXT         NOT NULL,
+  status        ENUM('em_analise', 'respondido', 'resolvido') NOT NULL DEFAULT 'em_analise',
+  criado_em     DATETIME     NOT NULL,
+  atualizado_em DATETIME     NOT NULL,
+  CONSTRAINT pk_chamados PRIMARY KEY (id),
+  CONSTRAINT fk_chamados_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
+  CONSTRAINT fk_chamados_curso FOREIGN KEY (id_curso) REFERENCES cursos (id) ON DELETE SET NULL,
+  INDEX ix_chamados_escopo (escopo, atualizado_em)
 ) ENGINE = InnoDB;
 
 -- =====================================================================
@@ -1507,3 +1538,19 @@ INSERT INTO auditoria (acao, descricao, id_autor, autor, criado_em) VALUES
   ('Permissão alterada', 'Beatriz Albuquerque definiu Juliana Mendonça como Líder de equipe.', 103, 'Beatriz Albuquerque', UTC_TIMESTAMP() - INTERVAL 360 MINUTE),
   ('Certificado SSO renovado', 'Tiago Vieira fez a rotação do certificado SAML.', 101, 'Tiago Vieira', UTC_TIMESTAMP() - INTERVAL 120 MINUTE),
   ('Convite enviado', 'Tiago Vieira convidou Rodrigo Caetano como Financeiro.', 101, 'Tiago Vieira', UTC_TIMESTAMP() - INTERVAL 100 MINUTE);
+
+INSERT INTO faq (id, escopo, ordem, pergunta, resposta) VALUES
+  (1, 'aluno', 1, 'Como emito meu certificado?', 'Ao concluir todas as aulas e atingir nota mínima 7,0 nas avaliações, o certificado aparece em Meu progresso → Certificados.'),
+  (2, 'aluno', 2, 'Posso refazer uma avaliação?', 'Sim, até 3 tentativas por módulo. Revise o material de apoio antes de tentar novamente.'),
+  (3, 'aluno', 3, 'Minhas horas aparecem para o RH?', 'Sim. Cada curso concluído é sincronizado com o RH em até 24 horas úteis.'),
+  (4, 'aluno', 4, 'O vídeo está travando. O que faço?', 'Reduza a qualidade no menu do player. Se continuar, abra um chamado informando o horário e o curso.'),
+  (11, 'gestor', 1, 'Como gero o relatório de horas de treinamento?', 'Em Relatórios, escolha "Conclusão de cursos e trilhas", defina o período e clique em Gerar. O arquivo fica disponível no histórico.'),
+  (12, 'gestor', 2, 'Como exporto a lista de colaboradores?', 'Em Colaboradores, aplique os filtros desejados e use "Exportar CSV". O arquivo respeita a busca e o status selecionados.'),
+  (13, 'gestor', 3, 'Como revogo o acesso de alguém desligado?', 'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.'),
+  (14, 'gestor', 4, 'Como exijo 2FA para gestores?', 'Em Configurações → Segurança, ative "Exigir autenticação em duas etapas" e salve.');
+
+INSERT INTO chamados (id, id_usuario, escopo, assunto, titulo, id_curso, descricao, status, criado_em, atualizado_em) VALUES
+  (3984, 101, 'aluno', 'Certificado', 'Validação de certificado de conclusão', 11, 'O QR code do certificado não abre a página de validação.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 31680 MINUTE, UTC_TIMESTAMP() - INTERVAL 28800 MINUTE),
+  (4109, 101, 'aluno', 'Dúvida sobre o conteúdo', 'Exercício prático do módulo 2', 1, 'Não entendi o que o exercício pede no segundo item.', 'respondido', UTC_TIMESTAMP() - INTERVAL 4320 MINUTE, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
+  (8120, 103, 'gestor', 'Faturamento e licenças', 'Liberação de licenças para Tecnologia', NULL, 'Precisamos de 5 licenças a mais para a equipe de Tecnologia.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 20160 MINUTE, UTC_TIMESTAMP() - INTERVAL 17280 MINUTE),
+  (8492, 101, 'gestor', 'Integrações e API', 'Webhook de conclusão de curso', NULL, 'Queremos receber um webhook quando alguém concluir um curso.', 'em_analise', UTC_TIMESTAMP() - INTERVAL 180 MINUTE, UTC_TIMESTAMP() - INTERVAL 180 MINUTE);

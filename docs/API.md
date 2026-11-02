@@ -212,6 +212,9 @@ Chamado a cada ~15 s de vídeo, ao pausar e ao sair da aula.
 ### `POST /suporte/chamados`
 `{ escopo, assunto, titulo, cursoId?, descricao }` → chamado criado. `422` com `campos` para validação.
 
+O escopo `gestor` exige um papel de gestão (`403` para colaborador). No escopo `aluno` cada pessoa vê só os próprios
+chamados; no `gestor`, os chamados de todos os gestores da empresa.
+
 ## Painel da empresa
 
 ### `GET /admin/dashboard?periodo=7dias|30dias|trimestre`

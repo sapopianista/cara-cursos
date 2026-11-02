@@ -16,12 +16,7 @@ import * as mock from './mock/handlers';
  * Continuam no mock mesmo com VITE_USAR_MOCK=false; quando o backend entregar
  * um deles, basta tirá-lo daqui.
  */
-export const MODULOS_SO_NO_MOCK = new Set([
-  'suporte',
-  'relatorios',
-  'faturamento',
-  'configuracoes',
-]);
+export const MODULOS_SO_NO_MOCK = new Set(['relatorios', 'faturamento', 'configuracoes']);
 
 /** Escolhe a implementação conforme o ambiente e o módulo. */
 const endpoint = (modulo, simulado, real) => (USAR_MOCK || MODULOS_SO_NO_MOCK.has(modulo) ? simulado : real);
