@@ -48,6 +48,18 @@ class AuthIntegracaoTest {
     }
 
     @Test
+    void cincoSenhasErradasBloqueiamOEmail() {
+        String email = "rodrigo.caetano@oscorp.com";
+        for (int i = 0; i < 5; i++) login(401, email, "errada" + i);
+        JsonObject bloqueado = login(429, email, "demo1234");
+        assertEquals("MUITAS_TENTATIVAS", bloqueado.get("codigo").getAsString());
+        assertEquals("Muitas tentativas de login. Tente novamente em 15 minutos.",
+                bloqueado.get("mensagem").getAsString());
+        // O bloqueio é por e-mail: as outras contas continuam entrando.
+        login(200, "juliana.mendonca@oscorp.com", "demo1234");
+    }
+
+    @Test
     void acessoDesativadoE403() {
         assertEquals("Seu acesso está desativado. Fale com o RH da sua empresa.",
                 login(403, "felipe.barreto@oscorp.com", "demo1234").get("mensagem").getAsString());

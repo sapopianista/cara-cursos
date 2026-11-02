@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -15,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import br.com.caracursos.dao.CertificadoDAO;
 import br.com.caracursos.http.Json;
 import br.com.caracursos.http.Pagina;
+import br.com.caracursos.seguranca.LimiteLogin;
 import br.com.caracursos.seguranca.Senhas;
 import br.com.caracursos.seguranca.Tokens;
 import br.com.caracursos.util.CertificadoPdf;
@@ -23,6 +25,25 @@ import br.com.caracursos.util.Csv;
 
 /** Testes que não precisam de banco. */
 class UnidadeTest {
+
+    @Test
+    void limiteDeLoginBloqueiaDepoisDeCincoFalhasNaJanela() {
+        LimiteLogin limite = new LimiteLogin();
+        Instant t0 = Instant.parse("2026-01-01T12:00:00Z");
+        for (int i = 0; i < 4; i++) limite.registrarFalha("a@x.com", t0.plusSeconds(i));
+        assertTrue(limite.bloqueio("a@x.com", t0.plusSeconds(10)).isZero());
+
+        limite.registrarFalha("a@x.com", t0.plusSeconds(10));
+        assertEquals(Duration.ofMinutes(15).minusSeconds(20), limite.bloqueio("a@x.com", t0.plusSeconds(20)));
+        assertTrue(limite.bloqueio("b@x.com", t0.plusSeconds(20)).isZero(), "outro e-mail não é afetado");
+        // A janela conta a partir da primeira falha; depois dela, tudo recomeça.
+        assertTrue(limite.bloqueio("a@x.com", t0.plus(LimiteLogin.JANELA)).isZero());
+
+        limite.registrarFalha("c@x.com", t0);
+        limite.limpar("c@x.com");
+        for (int i = 0; i < 4; i++) limite.registrarFalha("c@x.com", t0);
+        assertTrue(limite.bloqueio("c@x.com", t0).isZero(), "login certo zera o contador");
+    }
 
     @Test
     void cnpjConfereDigitosEFormata() {

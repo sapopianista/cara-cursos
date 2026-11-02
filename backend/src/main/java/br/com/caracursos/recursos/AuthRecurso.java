@@ -14,6 +14,7 @@ import br.com.caracursos.http.ApiException;
 import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
 import br.com.caracursos.model.Usuario;
+import br.com.caracursos.seguranca.LimiteLogin;
 import br.com.caracursos.seguranca.Permissao;
 import br.com.caracursos.seguranca.Senhas;
 import br.com.caracursos.seguranca.Tokens;
@@ -25,6 +26,8 @@ public class AuthRecurso {
     /** "Manter conectado" estende a sessão; sem ele, vale por um dia de trabalho. */
     private static final Duration SESSAO_LEMBRAR = Duration.ofDays(30);
     private static final Duration SESSAO_PADRAO = Duration.ofHours(12);
+
+    private final LimiteLogin limite = new LimiteLogin();
 
     public void registrar(Roteador r) {
         r.post("/auth/login", null, this::entrar);
@@ -40,20 +43,30 @@ public class AuthRecurso {
         if (senha == null || senha.isEmpty()) campos.put("senha", "Informe sua senha.");
         if (!campos.isEmpty()) throw ApiException.validacao(campos);
 
+        String email = identificador.toLowerCase(Locale.ROOT);
+        Instant agora = Relogio.agora();
+        Duration espera = limite.bloqueio(email, agora);
+        if (!espera.isZero()) {
+            long minutos = Math.max(1, (espera.getSeconds() + 59) / 60);
+            throw new ApiException(429, "MUITAS_TENTATIVAS", "Muitas tentativas de login. Tente novamente em "
+                    + minutos + (minutos == 1 ? " minuto." : " minutos."), null);
+        }
+
         Connection c = req.conexao();
         UsuarioDAO usuarios = new UsuarioDAO(c);
-        Usuario usuario = usuarios.buscarPorEmail(identificador.toLowerCase(Locale.ROOT));
+        Usuario usuario = usuarios.buscarPorEmail(email);
         // Verifica a senha mesmo quando o e-mail não existe (tempo de resposta igual).
         boolean senhaConfere = Senhas.verificar(senha, usuario == null ? null : usuario.getSenha());
         if (usuario == null || !senhaConfere) {
+            limite.registrarFalha(email, agora);
             throw ApiException.naoAutorizado("CREDENCIAIS_INVALIDAS", "E-mail ou senha incorretos.");
         }
+        limite.limpar(email);
         if (usuario.getStatus() == Usuario.Status.INATIVO) {
             throw ApiException.proibido("Seu acesso está desativado. Fale com o RH da sua empresa.");
         }
 
         boolean lembrar = Boolean.TRUE.equals(req.booleano("lembrar"));
-        Instant agora = Relogio.agora();
         String token = Tokens.novo();
         new SessaoDAO(c).criar(token, usuario.getId(), agora, agora.plus(lembrar ? SESSAO_LEMBRAR : SESSAO_PADRAO));
         usuarios.registrarAcesso(usuario.getId(), agora);

@@ -67,7 +67,7 @@ Escopo decidido para esta fase (tudo que o aluno usa e o núcleo do painel):
 | Configurações | `/admin/configuracoes` | ✅ backend |
 | Relatórios, Faturamento | — | ⏳ mock (Etapa 7) |
 
-**Pronto:** os 44 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
+**Pronto:** os 46 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
 funciona com `VITE_USAR_MOCK=false`.
 
 ## Etapa 5 — Escopo do frontend com o banco ✅
@@ -84,7 +84,9 @@ funciona com `VITE_USAR_MOCK=false`.
 - [x] Logs com `java.util.logging`; senhas e tokens nunca são registrados.
 - [x] `README.md` do backend.
 - [ ] Pool de conexões (JNDI do Tomcat / `context.xml`) em vez de `DriverManager` por requisição.
-- [ ] Limite de tentativas de login (por e-mail/IP) contra força bruta.
+- [x] Limite de tentativas de login (`seguranca/LimiteLogin`): 5 falhas por e-mail em 15 min → `429`. Fica em
+  memória (uma instância da API). Como é por e-mail, alguém pode travar a conta de outra pessoa por 15 min;
+  um limite por IP (atrás de proxy, via `X-Forwarded-For`) seria o complemento.
 
 ## Etapa 7 — Próxima fase: módulos que ficaram no mock
 
