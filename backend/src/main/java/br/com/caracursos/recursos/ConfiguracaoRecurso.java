@@ -26,7 +26,7 @@ import br.com.caracursos.util.Cnpj;
 /**
  * Painel da empresa: {@code /admin/configuracoes}.
  *
- * <p>As políticas são guardadas e devolvidas; aplicá-las (2FA, presença mínima etc.) é uma próxima etapa.
+ * <p>As políticas são guardadas e devolvidas; aplicá-las (presença mínima etc.) é uma próxima etapa.
  */
 public class ConfiguracaoRecurso {
 
@@ -109,8 +109,7 @@ public class ConfiguracaoRecurso {
                         dominios),
                 new Politicas(booleano(pol, "exigirPresencaMinima", p.exigirPresencaMinima()),
                         booleano(pol, "certificacaoAutomatica", p.certificacaoAutomatica()),
-                        booleano(pol, "permitirDownloadMateriais", p.permitirDownloadMateriais()),
-                        booleano(pol, "exigir2FA", p.exigir2FA())));
+                        booleano(pol, "permitirDownloadMateriais", p.permitirDownloadMateriais())));
         if (novas.equals(atual)) return atual;
 
         req.transacao(c -> {

@@ -631,11 +631,11 @@ export const papeis = [
 const colab = (nome) => colaboradores.find((c) => c.nome === nome);
 
 export const gestores = [
-  { colaboradorId: colab('Tiago Vieira').id, papel: 'admin', mfaAtivo: true, status: 'ativo' },
-  { colaboradorId: colab('Beatriz Albuquerque').id, papel: 'rh', mfaAtivo: true, status: 'ativo' },
-  { colaboradorId: colab('Juliana Mendonça').id, papel: 'lider', mfaAtivo: true, status: 'ativo' },
-  { colaboradorId: colab('Lucas Prado').id, papel: 'lider', mfaAtivo: false, status: 'ativo' },
-  { colaboradorId: colab('Rodrigo Caetano').id, papel: 'financeiro', mfaAtivo: false, status: 'pendente' },
+  { colaboradorId: colab('Tiago Vieira').id, papel: 'admin', status: 'ativo' },
+  { colaboradorId: colab('Beatriz Albuquerque').id, papel: 'rh', status: 'ativo' },
+  { colaboradorId: colab('Juliana Mendonça').id, papel: 'lider', status: 'ativo' },
+  { colaboradorId: colab('Lucas Prado').id, papel: 'lider', status: 'ativo' },
+  { colaboradorId: colab('Rodrigo Caetano').id, papel: 'financeiro', status: 'pendente' },
 ].map((g, i) => ({ id: i + 1, ...g, convidadoEm: atras({ dias: 200 - i * 30 }) }));
 
 export const auditoria = [
@@ -715,11 +715,6 @@ export const faq = {
       pergunta: 'Como revogo o acesso de alguém desligado?',
       resposta:
         'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.',
-    },
-    {
-      id: 14,
-      pergunta: 'Como exijo 2FA para gestores?',
-      resposta: 'Em Configurações → Segurança, ative "Exigir autenticação em duas etapas" e salve.',
     },
   ],
 };
@@ -814,37 +809,37 @@ export const modelosRelatorio = [
   {
     id: 'engajamento',
     titulo: 'Engajamento e frequência',
-    descricao: 'Dias e horários de maior acesso, tempo médio por sessão e colaboradores ativos.',
-    formato: 'xlsx',
+    descricao: 'Acessos, dias com acesso e aulas concluídas por colaborador no período.',
+    formato: 'csv',
   },
   {
     id: 'conclusao',
     titulo: 'Conclusão de cursos e trilhas',
-    descricao: 'Percentual de conclusão por departamento e tempo médio até concluir.',
+    descricao: 'Percentual de conclusão e cursos concluídos no período, por departamento.',
     formato: 'pdf',
   },
   {
-    id: 'investimento',
-    titulo: 'Investimento e retorno',
-    descricao: 'Custo por colaborador capacitado e horas acumuladas por departamento.',
+    id: 'horas',
+    titulo: 'Horas de treinamento',
+    descricao: 'Horas de aula concluídas e certificados emitidos no período, por departamento.',
     formato: 'pdf',
   },
   {
     id: 'satisfacao',
     titulo: 'Avaliações e satisfação',
-    descricao: 'Notas das aulas, avaliação dos instrutores e comentários dos alunos.',
+    descricao: 'Nota média de cada curso, com matriculados e concluintes no período.',
     formato: 'csv',
   },
   {
     id: 'individual',
     titulo: 'Desempenho individual',
-    descricao: 'Cursos concluídos, certificados e assiduidade de cada colaborador.',
+    descricao: 'Cursos concluídos, certificados e aulas no período de cada colaborador.',
     formato: 'pdf',
   },
   {
     id: 'conformidade',
     titulo: 'Conformidade e LGPD',
-    descricao: 'Treinamentos obrigatórios concluídos e pendências por equipe.',
+    descricao: 'Situação de cada colaborador nos treinamentos obrigatórios (categoria Conformidade).',
     formato: 'csv',
   },
 ];
@@ -872,7 +867,7 @@ export const relatoriosGerados = [
   },
   {
     id: 103,
-    modeloId: 'investimento',
+    modeloId: 'horas',
     periodo: 'ano',
     departamento: null,
     status: 'pronto',
@@ -927,6 +922,5 @@ export const configuracoes = {
     exigirPresencaMinima: true,
     certificacaoAutomatica: true,
     permitirDownloadMateriais: true,
-    exigir2FA: true,
   },
 };

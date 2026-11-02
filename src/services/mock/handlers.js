@@ -663,7 +663,6 @@ export function convidarGestor({ colaboradorId, papel }) {
     id: proximoId(db.gestores),
     colaboradorId: c.id,
     papel,
-    mfaAtivo: false,
     status: 'pendente',
     convidadoEm: new Date().toISOString(),
   };

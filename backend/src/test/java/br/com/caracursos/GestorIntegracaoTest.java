@@ -61,7 +61,6 @@ class GestorIntegracaoTest {
         assertEquals(101, tiago.get("colaboradorId").getAsInt());
         assertEquals("admin", tiago.get("papel").getAsString());
         assertEquals("ativo", tiago.get("status").getAsString());
-        assertTrue(tiago.get("mfaAtivo").getAsBoolean());
         assertFalse(tiago.get("ultimoAcesso").isJsonNull());
 
         // Rodrigo foi convidado depois do último acesso.

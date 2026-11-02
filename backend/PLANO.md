@@ -65,9 +65,10 @@ Escopo decidido para esta fase (tudo que o aluno usa e o núcleo do painel):
 | Gestores e auditoria | `/admin/gestores/*`, `/admin/auditoria` | ✅ backend |
 | Suporte | `/suporte`, `/suporte/chamados` | ✅ backend |
 | Configurações | `/admin/configuracoes` | ✅ backend |
-| Relatórios, Faturamento | — | ⏳ mock (Etapa 7) |
+| Relatórios | `/admin/relatorios/*` (PDF e CSV) | ✅ backend |
+| Faturamento | — | ⏳ mock (Etapa 7) |
 
-**Pronto:** os 46 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
+**Pronto:** os 51 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
 funciona com `VITE_USAR_MOCK=false`.
 
 ## Etapa 5 — Escopo do frontend com o banco ✅
@@ -92,14 +93,15 @@ funciona com `VITE_USAR_MOCK=false`.
 
 Ficaram de fora porque dependem de serviços externos ou de regras que ainda não existem no banco:
 
-1. **Convite de colaboradores** — e-mail com link para definir a senha (hoje o cadastro fica `pendente`
-   e não consegue entrar). Precisa de SMTP.
+1. ~~**Convite por e-mail**~~ — fora do escopo (decisão do projeto: sem envio de e-mails).
 2. ~~**Gestores e permissões**~~ ✅ — tabelas `gestores` (dados do convite) e `auditoria`; o papel continua em
-   `usuarios.tipo_perfil`. Falta só o e-mail do convite (item 1).
+   `usuarios.tipo_perfil`.
 3. ~~**Suporte**~~ ✅ — tabelas `chamados` e `faq`. A resposta da equipe ainda é manual (direto no banco).
-4. **Relatórios** — geração assíncrona de arquivos (fila + armazenamento).
+4. ~~**Relatórios**~~ ✅ — gerados na hora (PDF com `util/TabelaPdf`, CSV com `util/Csv`) e guardados na
+   tabela `relatorios`; o navegador baixa para a pasta Downloads. Excel virou CSV (abre no Excel) e
+   "Investimento e retorno" virou "Horas de treinamento", porque o valor das licenças não está no banco.
 5. ~~**Configurações**~~ ✅ — colunas novas em `empresa` e validação de CNPJ (`util/Cnpj`). As políticas são
-   guardadas, mas ainda não aplicadas (ex.: `exigir2FA` não bloqueia nada, porque não há 2FA).
+   guardadas, mas ainda não aplicadas. A verificação em duas etapas (2FA) foi retirada do projeto.
 6. **Faturamento** — depende do sistema de cobrança/notas fiscais.
 
 ## Pendências e riscos

@@ -71,10 +71,10 @@ usuário MySQL próprio da aplicação (o script tem o `CREATE USER` comentado).
 ```
 src/main/java/br/com/caracursos/
   http/        Api (processa a requisição), ApiServlet, Roteador, Requisicao, Json, Pagina, ApiException
-  recursos/    rotas por módulo: Auth, Catalogo, Trilha, Sala, Aluno, Notificacao, Colaborador, Dashboard, Gestor, Suporte, Configuracao
+  recursos/    rotas por módulo: Auth, Catalogo, Trilha, Sala, Aluno, Notificacao, Colaborador, Dashboard, Gestor, Suporte, Configuracao, Relatorio
   dao/         acesso ao banco com JDBC puro (PreparedStatement) + ConexaoFactory
   model/       Usuario, Curso, Matricula, CursoResumo
   seguranca/   Senhas (PBKDF2), Tokens (sessão), Permissao (papéis)
-  util/        Csv (exportação para Excel), CertificadoPdf (PDF sem bibliotecas), Cnpj, Relogio
+  util/        Csv (exportação para Excel), CertificadoPdf e TabelaPdf (PDF sem bibliotecas), Cnpj, Relogio
 sql/cara_cursos.sql   esquema + dados de teste
 ```

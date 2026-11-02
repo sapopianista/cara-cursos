@@ -21,7 +21,7 @@ USE cara_cursos;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON cara_cursos.* TO 'caracursos'@'localhost';
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
+DROP TABLE IF EXISTS relatorios, chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
   progresso_aulas, aulas, matriculas, nivel_cursos, niveis, trilha_cursos, trilhas,
   cursos, areas, categorias, sessoes, usuarios, cargos, departamentos, empresa;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -42,7 +42,6 @@ CREATE TABLE empresa (
   exigir_presenca_minima      BOOLEAN    NOT NULL DEFAULT TRUE,
   certificacao_automatica     BOOLEAN    NOT NULL DEFAULT TRUE,
   permitir_download_materiais BOOLEAN    NOT NULL DEFAULT TRUE,
-  exigir_2fa                  BOOLEAN    NOT NULL DEFAULT FALSE,
   CONSTRAINT pk_empresa PRIMARY KEY (id)
 ) ENGINE = InnoDB;
 
@@ -108,7 +107,6 @@ CREATE TABLE sessoes (
 CREATE TABLE gestores (
   id_usuario   INT UNSIGNED NOT NULL,
   convidado_em DATETIME     NOT NULL,
-  mfa_ativo    BOOLEAN      NOT NULL DEFAULT FALSE,
   CONSTRAINT pk_gestores PRIMARY KEY (id_usuario),
   CONSTRAINT fk_gestores_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
@@ -350,6 +348,25 @@ CREATE TABLE chamados (
   INDEX ix_chamados_escopo (escopo, atualizado_em)
 ) ENGINE = InnoDB;
 
+-- ---------------------------------------------------------------------
+-- Relatórios gerados no painel. O arquivo fica guardado (é pequeno) para ser
+-- baixado de novo depois com os mesmos números do dia em que foi gerado.
+-- ---------------------------------------------------------------------
+CREATE TABLE relatorios (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  modelo         VARCHAR(30)  NOT NULL,
+  periodo        ENUM('7dias', '30dias', 'trimestre', 'ano') NOT NULL,
+  departamento   VARCHAR(80)  NULL,
+  id_solicitante INT UNSIGNED NULL,
+  solicitado_por VARCHAR(120) NOT NULL,
+  criado_em      DATETIME     NOT NULL,
+  nome_arquivo   VARCHAR(120) NOT NULL,
+  arquivo        MEDIUMBLOB   NOT NULL,
+  CONSTRAINT pk_relatorios PRIMARY KEY (id),
+  CONSTRAINT fk_relatorios_solicitante FOREIGN KEY (id_solicitante) REFERENCES usuarios (id) ON DELETE SET NULL,
+  INDEX ix_relatorios_criado_em (criado_em)
+) ENGINE = InnoDB;
+
 -- =====================================================================
 -- DADOS DE TESTE
 -- Gerados a partir dos dados de demonstração do frontend (src/services/mock/db.js),
@@ -358,9 +375,9 @@ CREATE TABLE chamados (
 -- =====================================================================
 
 INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas, email_notificacao,
-                     fuso_horario, dominios_autorizados, exigir_2fa) VALUES
+                     fuso_horario, dominios_autorizados) VALUES
   (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30, 'educacao@oscorp.com',
-   'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com', TRUE);
+   'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com');
 
 INSERT INTO departamentos (nome) VALUES
   ('Financeiro'),
@@ -1537,12 +1554,12 @@ INSERT INTO notificacoes (id_usuario, titulo, descricao, link, lida, criada_em) 
   (102, 'Chamado respondido', 'A equipe respondeu o chamado #4109.', '/suporte', TRUE, UTC_TIMESTAMP() - INTERVAL 2880 MINUTE);
 
 -- Rodrigo foi convidado depois do último acesso: aparece como convite pendente.
-INSERT INTO gestores (id_usuario, convidado_em, mfa_ativo) VALUES
-  (101, UTC_TIMESTAMP() - INTERVAL 288000 MINUTE, TRUE),
-  (103, UTC_TIMESTAMP() - INTERVAL 244800 MINUTE, TRUE),
-  (104, UTC_TIMESTAMP() - INTERVAL 201600 MINUTE, TRUE),
-  (111, UTC_TIMESTAMP() - INTERVAL 158400 MINUTE, FALSE),
-  (105, UTC_TIMESTAMP() - INTERVAL 100 MINUTE, FALSE);
+INSERT INTO gestores (id_usuario, convidado_em) VALUES
+  (101, UTC_TIMESTAMP() - INTERVAL 288000 MINUTE),
+  (103, UTC_TIMESTAMP() - INTERVAL 244800 MINUTE),
+  (104, UTC_TIMESTAMP() - INTERVAL 201600 MINUTE),
+  (111, UTC_TIMESTAMP() - INTERVAL 158400 MINUTE),
+  (105, UTC_TIMESTAMP() - INTERVAL 100 MINUTE);
 
 INSERT INTO auditoria (acao, descricao, id_autor, autor, criado_em) VALUES
   ('Permissão alterada', 'Beatriz Albuquerque definiu Juliana Mendonça como Líder de equipe.', 103, 'Beatriz Albuquerque', UTC_TIMESTAMP() - INTERVAL 360 MINUTE),
@@ -1556,8 +1573,7 @@ INSERT INTO faq (id, escopo, ordem, pergunta, resposta) VALUES
   (4, 'aluno', 4, 'O vídeo está travando. O que faço?', 'Reduza a qualidade no menu do player. Se continuar, abra um chamado informando o horário e o curso.'),
   (11, 'gestor', 1, 'Como gero o relatório de horas de treinamento?', 'Em Relatórios, escolha "Conclusão de cursos e trilhas", defina o período e clique em Gerar. O arquivo fica disponível no histórico.'),
   (12, 'gestor', 2, 'Como exporto a lista de colaboradores?', 'Em Colaboradores, aplique os filtros desejados e use "Exportar CSV". O arquivo respeita a busca e o status selecionados.'),
-  (13, 'gestor', 3, 'Como revogo o acesso de alguém desligado?', 'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.'),
-  (14, 'gestor', 4, 'Como exijo 2FA para gestores?', 'Em Configurações → Segurança, ative "Exigir autenticação em duas etapas" e salve.');
+  (13, 'gestor', 3, 'Como revogo o acesso de alguém desligado?', 'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.');
 
 INSERT INTO chamados (id, id_usuario, escopo, assunto, titulo, id_curso, descricao, status, criado_em, atualizado_em) VALUES
   (3984, 101, 'aluno', 'Certificado', 'Validação de certificado de conclusão', 11, 'O QR code do certificado não abre a página de validação.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 31680 MINUTE, UTC_TIMESTAMP() - INTERVAL 28800 MINUTE),

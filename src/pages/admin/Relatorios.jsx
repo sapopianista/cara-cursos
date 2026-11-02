@@ -45,7 +45,8 @@ export default function Relatorios() {
     });
     if (!novo) return;
     setPedido(null);
-    toast.info('Estamos gerando o relatório. Ele aparece pronto no histórico em instantes.');
+    if (novo.status === 'pronto') toast.sucesso('Relatório pronto. Use o botão de download no histórico.');
+    else toast.info('Estamos gerando o relatório. Ele aparece pronto no histórico em instantes.');
     recarregar();
   };
 

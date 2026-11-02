@@ -258,7 +258,7 @@ Regras: e-mail único (`422`, `campos.email`); sem licença livre → `409 SEM_L
 | GET | `/admin/auditoria` | — | `{ id, acao, descricao, autor, criadoEm }[]` (últimos 10) |
 
 ```ts
-Gestor = { id, colaboradorId, nome, email, departamento, papel, mfaAtivo, status: 'ativo'|'pendente', convidadoEm, ultimoAcesso | null }
+Gestor = { id, colaboradorId, nome, email, departamento, papel, status: 'ativo'|'pendente', convidadoEm, ultimoAcesso | null }
 ```
 Regras: sempre ao menos um `admin` ativo (`409 ULTIMO_ADMIN`); ninguém revoga o próprio acesso (`409 PROPRIO_ACESSO`);
 toda alteração gera auditoria.
@@ -268,14 +268,20 @@ feito; o gestor fica `pendente` até entrar no sistema depois do convite, e reen
 `409 CONVITE_ACEITO`. O e-mail do convite ainda não é enviado (depende de SMTP).
 
 ### Relatórios
-- `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'xlsx'|'csv' }[], departamentos: string[], historico: Relatorio[] }`
+- `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'csv' }[], departamentos: string[], historico: Relatorio[] }`
 - `POST /admin/relatorios` `{ modeloId, periodo: '7dias'|'30dias'|'trimestre'|'ano', departamento?: string }` → `Relatorio` com `status: 'processando'`
 - `GET /admin/relatorios/{id}/arquivo` → arquivo (quando `url` não vier no JSON)
 
 ```ts
 Relatorio = { id, modeloId, modelo, periodo, departamento | null, status: 'processando'|'pronto'|'erro', solicitadoPor, criadoEm, url | null }
 ```
-A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 s enquanto houver item `processando`.
+O front consulta `GET /admin/relatorios` a cada 2,5 s enquanto houver item `processando`.
+
+No backend Java a geração é **síncrona**: o `POST` já devolve `status: 'pronto'` e `url` apontando para
+`/admin/relatorios/{id}/arquivo`; o navegador baixa o arquivo para a pasta Downloads. O arquivo fica guardado no
+banco (tabela `relatorios`), então baixar de novo traz os números do dia em que foi gerado. O histórico mostra os
+20 mais recentes. Papéis: admin, rh e lider. Modelos: `engajamento` (CSV), `conclusao` (PDF), `horas` (PDF),
+`satisfacao` (CSV), `individual` (PDF) e `conformidade` (CSV; obrigatórios = cursos da categoria Conformidade).
 
 ### Plano e faturamento
 - `GET /admin/faturamento`
@@ -299,7 +305,7 @@ A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 
                    "emailNotificacao": "educacao@oscorp.com", "fusoHorario": "America/Sao_Paulo",
                    "dominiosAutorizados": "oscorp.com, lab.oscorp.com" },
   "politicas": { "exigirPresencaMinima": true, "certificacaoAutomatica": true,
-                 "permitirDownloadMateriais": true, "exigir2FA": true }
+                 "permitirDownloadMateriais": true }
 }
 ```
 Validar CNPJ (dígitos verificadores) e e-mail; responder `422` com `campos.cnpj` / `campos.emailNotificacao`.

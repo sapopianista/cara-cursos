@@ -15,6 +15,7 @@ public enum Permissao {
     AUTENTICADO(EnumSet.allOf(TipoPerfil.class)),
     ADMIN_VISAO(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER)),
     ADMIN_COLABORADORES(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER)),
+    ADMIN_RELATORIOS(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER)),
     ADMIN_GESTORES(EnumSet.of(TipoPerfil.ADMIN)),
     ADMIN_CONFIGURACOES(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH)),
     /** Ajuda do painel: todos os papéis de gestão. */
