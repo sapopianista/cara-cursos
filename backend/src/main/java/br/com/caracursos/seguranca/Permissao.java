@@ -18,6 +18,7 @@ public enum Permissao {
     ADMIN_RELATORIOS(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH, TipoPerfil.LIDER)),
     ADMIN_GESTORES(EnumSet.of(TipoPerfil.ADMIN)),
     ADMIN_CONFIGURACOES(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.RH)),
+    ADMIN_FATURAMENTO(EnumSet.of(TipoPerfil.ADMIN, TipoPerfil.FINANCEIRO)),
     /** Ajuda do painel: todos os papéis de gestão. */
     ADMIN_AJUDA(EnumSet.complementOf(EnumSet.of(TipoPerfil.COLABORADOR)));
 

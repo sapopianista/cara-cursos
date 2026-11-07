@@ -47,8 +47,7 @@ A API fica em `http://localhost:8080/api` (teste: `http://localhost:8080/api/sau
 ## 4. Ligar o frontend
 
 Na pasta raiz, crie um `.env` com `VITE_USAR_MOCK=false` e rode `npm run dev`. O Vite encaminha `/api`
-para a porta 8080. Os módulos listados em `MODULOS_SO_NO_MOCK` (`src/services/api.js`) continuam simulados
-até o backend implementá-los.
+para a porta 8080. Todas as telas passam a usar a API.
 
 ## Testes
 
@@ -59,6 +58,12 @@ até o backend implementá-los.
 
 Os testes de integração exercitam a API inteira (rotas, login, permissões, JSON e SQL) numa base
 **separada**, `cara_cursos_teste`, recriada a cada classe de teste. A base `cara_cursos` nunca é tocada.
+
+### Erro "class file version 69.0 … only recognizes up to 65.0"
+
+Alguma classe em `target/` foi compilada por um JDK mais novo (ex.: a extensão Java do VS Code usando o JDK 25).
+Recompile tudo com o JDK 21: `.\mvnw.cmd clean test` (ou `clean package`). Ao levar o projeto para outra
+máquina, não copie a pasta `target/`.
 
 ## Produção (Tomcat 10.1+)
 
@@ -71,7 +76,7 @@ usuário MySQL próprio da aplicação (o script tem o `CREATE USER` comentado).
 ```
 src/main/java/br/com/caracursos/
   http/        Api (processa a requisição), ApiServlet, Roteador, Requisicao, Json, Pagina, ApiException
-  recursos/    rotas por módulo: Auth, Catalogo, Trilha, Sala, Aluno, Notificacao, Colaborador, Dashboard, Gestor, Suporte, Configuracao, Relatorio
+  recursos/    rotas por módulo: Auth, Catalogo, Trilha, Sala, Aluno, Notificacao, Colaborador, Dashboard, Gestor, Suporte, Configuracao, Relatorio, Faturamento
   dao/         acesso ao banco com JDBC puro (PreparedStatement) + ConexaoFactory
   model/       Usuario, Curso, Matricula, CursoResumo
   seguranca/   Senhas (PBKDF2), Tokens (sessão), Permissao (papéis)

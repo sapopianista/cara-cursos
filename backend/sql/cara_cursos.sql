@@ -21,7 +21,7 @@ USE cara_cursos;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON cara_cursos.* TO 'caracursos'@'localhost';
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS relatorios, chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
+DROP TABLE IF EXISTS faturas, contrato, relatorios, chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
   progresso_aulas, aulas, matriculas, nivel_cursos, niveis, trilha_cursos, trilhas,
   cursos, areas, categorias, sessoes, usuarios, cargos, departamentos, empresa;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -34,6 +34,7 @@ CREATE TABLE empresa (
   nome_fantasia        VARCHAR(120)      NOT NULL,
   razao_social         VARCHAR(160)      NOT NULL,
   cnpj                 CHAR(18)          NOT NULL,  -- formatado: 00.000.000/0000-00
+  endereco             VARCHAR(200)      NOT NULL DEFAULT '',
   licencas_contratadas SMALLINT UNSIGNED NOT NULL,
   -- Configurações (tela Configurações do painel)
   email_notificacao    VARCHAR(160)      NOT NULL,
@@ -349,6 +350,37 @@ CREATE TABLE chamados (
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------
+-- Plano e faturamento. As licenças contratadas ficam em empresa.licencas_contratadas
+-- (é o que limita o cadastro de colaboradores); aqui ficam o contrato e as faturas.
+-- ---------------------------------------------------------------------
+CREATE TABLE contrato (
+  id                         INT UNSIGNED NOT NULL,
+  numero                     VARCHAR(20)  NOT NULL,
+  plano                      VARCHAR(60)  NOT NULL,
+  status                     ENUM('ativo', 'suspenso', 'encerrado') NOT NULL DEFAULT 'ativo',
+  inicio                     DATETIME     NOT NULL,
+  renovacao                  DATETIME     NOT NULL,
+  valor_licenca_centavos     INT UNSIGNED NOT NULL,
+  metodo_pagamento           VARCHAR(40)  NOT NULL,
+  email_nota_fiscal          VARCHAR(160) NOT NULL,
+  CONSTRAINT pk_contrato PRIMARY KEY (id)
+) ENGINE = InnoDB;
+
+-- status 'aberta' depois do vencimento é devolvido como 'vencida' pela API.
+CREATE TABLE faturas (
+  id                 VARCHAR(20)  NOT NULL,  -- ex.: INV-2026-10
+  competencia        DATETIME     NOT NULL,
+  licencas           SMALLINT UNSIGNED NOT NULL,
+  valor_centavos     INT UNSIGNED NOT NULL,
+  emitida_em         DATETIME     NOT NULL,
+  vencimento         DATETIME     NOT NULL,
+  status             ENUM('paga', 'aberta') NOT NULL DEFAULT 'aberta',
+  nota_fiscal_numero VARCHAR(20)  NOT NULL,
+  CONSTRAINT pk_faturas PRIMARY KEY (id),
+  INDEX ix_faturas_competencia (competencia)
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------
 -- Relatórios gerados no painel. O arquivo fica guardado (é pequeno) para ser
 -- baixado de novo depois com os mesmos números do dia em que foi gerado.
 -- ---------------------------------------------------------------------
@@ -374,10 +406,10 @@ CREATE TABLE relatorios (
 -- Contas ativas usam a senha: demo1234
 -- =====================================================================
 
-INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas, email_notificacao,
+INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, endereco, licencas_contratadas, email_notificacao,
                      fuso_horario, dominios_autorizados) VALUES
-  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30, 'educacao@oscorp.com',
-   'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com');
+  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 'Av. Paulista, 1842, Bela Vista — São Paulo, SP', 30,
+   'educacao@oscorp.com', 'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com');
 
 INSERT INTO departamentos (nome) VALUES
   ('Financeiro'),
@@ -1580,3 +1612,20 @@ INSERT INTO chamados (id, id_usuario, escopo, assunto, titulo, id_curso, descric
   (4109, 101, 'aluno', 'Dúvida sobre o conteúdo', 'Exercício prático do módulo 2', 1, 'Não entendi o que o exercício pede no segundo item.', 'respondido', UTC_TIMESTAMP() - INTERVAL 4320 MINUTE, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
   (8120, 103, 'gestor', 'Faturamento e licenças', 'Liberação de licenças para Tecnologia', NULL, 'Precisamos de 5 licenças a mais para a equipe de Tecnologia.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 20160 MINUTE, UTC_TIMESTAMP() - INTERVAL 17280 MINUTE),
   (8492, 101, 'gestor', 'Integrações e API', 'Webhook de conclusão de curso', NULL, 'Queremos receber um webhook quando alguém concluir um curso.', 'em_analise', UTC_TIMESTAMP() - INTERVAL 180 MINUTE, UTC_TIMESTAMP() - INTERVAL 180 MINUTE);
+
+-- Datas "de calendário" (contrato e faturas) ficam ao meio-dia UTC: caem no mesmo dia em qualquer fuso do Brasil.
+-- Contrato anual que começou há 320 dias (renova em 45).
+INSERT INTO contrato (id, numero, plano, status, inicio, renovacao, valor_licenca_centavos, metodo_pagamento,
+                      email_nota_fiscal) VALUES
+  (1, 'OSC-2026-008', 'Enterprise anual', 'ativo', UTC_DATE() - INTERVAL 320 DAY + INTERVAL 12 HOUR,
+   UTC_DATE() + INTERVAL 45 DAY + INTERVAL 12 HOUR,
+   7400, 'Boleto bancário', 'nfe@oscorp.com');
+
+-- Últimos 4 meses: emitidas no dia 1, vencem no dia 15. A do mês atual está em aberto.
+INSERT INTO faturas (id, competencia, licencas, valor_centavos, emitida_em, vencimento, status, nota_fiscal_numero)
+SELECT CONCAT('INV-', DATE_FORMAT(m.inicio, '%Y-%m')), m.inicio, m.licencas, m.licencas * 7400, m.inicio,
+       m.inicio + INTERVAL 14 DAY, IF(m.n = 0, 'aberta', 'paga'), CONCAT('NFE-', 90420 - m.n * 37)
+FROM (
+  SELECT n, DATE_FORMAT(UTC_DATE() - INTERVAL n MONTH, '%Y-%m-01 12:00:00') AS inicio, IF(n >= 2, 25, 30) AS licencas
+  FROM (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) meses
+) m;

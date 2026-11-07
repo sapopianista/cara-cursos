@@ -296,6 +296,12 @@ banco (tabela `relatorios`), então baixar de novo traz os números do dia em qu
 ```
 - `POST /admin/faturamento/licencas` `{ quantidade }` (1–500) → `{ licencasContratadas }`
 
+Papéis: admin e financeiro. No backend Java não há sistema de cobrança: contrato e faturas vêm do banco (tabelas
+`contrato` e `faturas`). `licencasContratadas` é a mesma de `empresa.licencas_contratadas`, que limita o cadastro de
+colaboradores; contratar licenças entra na auditoria. Fatura `aberta` cujo dia de vencimento já passou é devolvida
+como `vencida`. `notaFiscal.url` aponta para `GET /admin/faturamento/faturas/{id}/nota`, um **demonstrativo** da
+fatura em PDF (sem valor fiscal).
+
 ### Configurações
 - `GET /admin/configuracoes`
 - `PUT /admin/configuracoes`

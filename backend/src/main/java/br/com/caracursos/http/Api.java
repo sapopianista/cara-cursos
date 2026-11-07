@@ -15,6 +15,7 @@ import br.com.caracursos.recursos.CatalogoRecurso;
 import br.com.caracursos.recursos.ColaboradorRecurso;
 import br.com.caracursos.recursos.ConfiguracaoRecurso;
 import br.com.caracursos.recursos.DashboardRecurso;
+import br.com.caracursos.recursos.FaturamentoRecurso;
 import br.com.caracursos.recursos.GestorRecurso;
 import br.com.caracursos.recursos.NotificacaoRecurso;
 import br.com.caracursos.recursos.RelatorioRecurso;
@@ -60,6 +61,7 @@ public final class Api {
         new SuporteRecurso().registrar(roteador);
         new ConfiguracaoRecurso().registrar(roteador);
         new RelatorioRecurso().registrar(roteador);
+        new FaturamentoRecurso().registrar(roteador);
     }
 
     public Resposta processar(Pedido pedido) {
