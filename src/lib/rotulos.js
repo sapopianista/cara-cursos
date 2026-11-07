@@ -26,7 +26,7 @@ export const STATUS_CURSO = {
 
 export const STATUS_COLABORADOR = {
   ativo: { rotulo: 'Ativo', tom: 'sucesso' },
-  pendente: { rotulo: 'Convite pendente', tom: 'alerta' },
+  pendente: { rotulo: 'Aguardando 1º acesso', tom: 'alerta' },
   inativo: { rotulo: 'Inativo', tom: 'neutro' },
 };
 

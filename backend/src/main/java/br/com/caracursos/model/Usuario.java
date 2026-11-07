@@ -51,6 +51,7 @@ public class Usuario {
     private String nome;
     private String email;
     private String senha;
+    private boolean trocarSenha;
     private TipoPerfil tipoPerfil;
     private String cargo;
     private String departamento;
@@ -123,6 +124,15 @@ public class Usuario {
 
     public void setSenha(String senha) {
         this.senha = senha;
+    }
+
+    /** A senha foi definida pelo RH e precisa ser trocada pela própria pessoa. */
+    public boolean isTrocarSenha() {
+        return trocarSenha;
+    }
+
+    public void setTrocarSenha(boolean trocarSenha) {
+        this.trocarSenha = trocarSenha;
     }
 
     public TipoPerfil getTipoPerfil() {

@@ -75,6 +75,11 @@ export default function Perfil() {
           </Link>
           .
         </p>
+        <div className="mt-6 border-t border-line pt-6">
+          <Button variante="secondary" to="/trocar-senha">
+            Trocar senha
+          </Button>
+        </div>
       </Card>
 
       <StatGrid>

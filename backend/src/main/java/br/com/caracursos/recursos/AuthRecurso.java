@@ -33,6 +33,7 @@ public class AuthRecurso {
         r.post("/auth/login", null, this::entrar);
         r.get("/auth/me", Permissao.AUTENTICADO, this::sessaoAtual);
         r.post("/auth/logout", Permissao.AUTENTICADO, this::sair);
+        r.put("/auth/senha", Permissao.AUTENTICADO, this::trocarSenha);
     }
 
     private Object entrar(Requisicao req) throws SQLException {
@@ -66,6 +67,12 @@ public class AuthRecurso {
             throw ApiException.proibido("Seu acesso está desativado. Fale com o RH da sua empresa.");
         }
 
+        // Primeiro acesso de quem foi cadastrado pelo RH.
+        if (usuario.getStatus() == Usuario.Status.PENDENTE) {
+            usuarios.atualizarStatus(usuario.getId(), Usuario.Status.ATIVO);
+            usuario.setStatus(Usuario.Status.ATIVO);
+        }
+
         boolean lembrar = Boolean.TRUE.equals(req.booleano("lembrar"));
         String token = Tokens.novo();
         new SessaoDAO(c).criar(token, usuario.getId(), agora, agora.plus(lembrar ? SESSAO_LEMBRAR : SESSAO_PADRAO));
@@ -83,12 +90,30 @@ public class AuthRecurso {
         return usuarioJson(u, req.conexao());
     }
 
+    /** A própria pessoa troca a senha (obrigatório depois de uma senha definida pelo RH). */
+    private Object trocarSenha(Requisicao req) throws SQLException {
+        Usuario u = req.usuario();
+        String atual = req.textoOriginal("senhaAtual");
+        String nova = req.textoOriginal("novaSenha");
+        Map<String, String> campos = new LinkedHashMap<>();
+        if (atual == null || atual.isEmpty()) campos.put("senhaAtual", "Informe a senha atual.");
+        else if (!Senhas.verificar(atual, u.getSenha())) campos.put("senhaAtual", "Senha atual incorreta.");
+        String problema = Senhas.problema(nova);
+        if (problema != null) campos.put("novaSenha", problema);
+        else if (nova.equals(atual)) campos.put("novaSenha", "A nova senha precisa ser diferente da atual.");
+        if (!campos.isEmpty()) throw ApiException.validacao(campos);
+
+        new UsuarioDAO(req.conexao()).definirSenha(u.getId(), Senhas.gerar(nova), false);
+        u.setTrocarSenha(false);
+        return usuarioJson(u, req.conexao());
+    }
+
     private Object sair(Requisicao req) throws SQLException {
         new SessaoDAO(req.conexao()).revogar(req.token());
         return null;
     }
 
-    /** Formato {@code Usuario} do contrato: { id, nome, email, cargo, departamento, papel, empresa }. */
+    /** Formato {@code Usuario} do contrato: { id, nome, email, cargo, departamento, papel, trocarSenha, empresa }. */
     static Map<String, Object> usuarioJson(Usuario u, Connection c) throws SQLException {
         UsuarioDAO.Empresa empresa = new UsuarioDAO(c).empresa();
         Map<String, Object> json = new LinkedHashMap<>();
@@ -98,6 +123,7 @@ public class AuthRecurso {
         json.put("cargo", u.getCargo());
         json.put("departamento", u.getDepartamento());
         json.put("papel", u.getTipoPerfil().getValorBanco());
+        json.put("trocarSenha", u.isTrocarSenha());
         json.put("empresa", empresa);
         return json;
     }

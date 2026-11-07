@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -75,7 +76,7 @@ public final class Api {
 
         try (Requisicao requisicao = new Requisicao(encontrada.variaveis(), pedido.parametros(), pedido.corpo(), token)) {
             Permissao permissao = encontrada.rota().permissao();
-            if (permissao != null) autenticar(requisicao, token, permissao);
+            if (permissao != null) autenticar(requisicao, token, permissao, encontrada.rota());
             return sucesso(encontrada.rota().acao().executar(requisicao));
         } catch (ApiException e) {
             return erro(e);
@@ -88,7 +89,12 @@ public final class Api {
         }
     }
 
-    private static void autenticar(Requisicao requisicao, String token, Permissao permissao) throws SQLException {
+    /** O que quem precisa trocar a senha ainda pode fazer: ver a sessão, trocar a senha e sair. */
+    private static final Set<String> LIBERADAS_ANTES_DE_TROCAR_SENHA =
+            Set.of("GET /auth/me", "PUT /auth/senha", "POST /auth/logout");
+
+    private static void autenticar(Requisicao requisicao, String token, Permissao permissao, Roteador.Rota rota)
+            throws SQLException {
         if (token == null) throw ApiException.naoAutorizado("SESSAO_AUSENTE", "Entre para continuar.");
         Usuario usuario = new SessaoDAO(requisicao.conexao()).buscarUsuarioAtivo(token);
         if (usuario == null) {
@@ -96,6 +102,9 @@ public final class Api {
         }
         if (!permissao.permite(usuario.getTipoPerfil())) {
             throw ApiException.proibido("Você não tem permissão para esta ação.");
+        }
+        if (usuario.isTrocarSenha() && !LIBERADAS_ANTES_DE_TROCAR_SENHA.contains(rota.metodo() + " " + rota.modelo())) {
+            throw new ApiException(403, "TROCAR_SENHA", "Troque a senha provisória para continuar.", null);
         }
         requisicao.definirUsuario(usuario);
     }

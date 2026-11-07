@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { screen, within } from '@testing-library/react';
+import { criarColaborador } from '../services/mock/handlers';
 import { renderizarApp, TOKEN_ADMIN, TOKEN_COLABORADOR, violacoesA11y } from './utils';
 
 describe('autenticação', () => {
@@ -29,6 +30,33 @@ describe('autenticação', () => {
     await usuario.type(screen.getByLabelText(/^Senha/), 'demo1234');
     await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
     expect(await screen.findByRole('heading', { level: 1, name: 'Olá, Tiago' })).toBeInTheDocument();
+  });
+
+  it('no primeiro acesso, exige trocar a senha provisória', async () => {
+    await criarColaborador({
+      nome: 'Bruna Primeiro Acesso',
+      email: 'bruna.acesso@oscorp.com',
+      cargo: 'Analista de Dados',
+      departamento: 'Tecnologia',
+      nivel: 1,
+      senhaInicial: 'provisoria123',
+    });
+    const { usuario } = renderizarApp('/login');
+    await usuario.type(await screen.findByLabelText(/E-mail corporativo/), 'bruna.acesso@oscorp.com');
+    await usuario.type(screen.getByLabelText(/^Senha/), 'provisoria123');
+    await usuario.click(screen.getByRole('button', { name: 'Entrar' }));
+
+    expect(await screen.findByRole('heading', { name: 'Crie sua senha' })).toBeInTheDocument();
+    await usuario.type(screen.getByLabelText(/Senha provisória/), 'provisoria123');
+    await usuario.type(screen.getByLabelText(/^Nova senha/), 'minha-senha');
+    await usuario.type(screen.getByLabelText(/Confirme a nova senha/), 'outra-senha');
+    await usuario.click(screen.getByRole('button', { name: 'Salvar senha' }));
+    expect(screen.getByText('As senhas não conferem.')).toBeInTheDocument();
+
+    await usuario.clear(screen.getByLabelText(/Confirme a nova senha/));
+    await usuario.type(screen.getByLabelText(/Confirme a nova senha/), 'minha-senha');
+    await usuario.click(screen.getByRole('button', { name: 'Salvar senha' }));
+    expect(await screen.findByRole('heading', { level: 1, name: 'Olá, Bruna' })).toBeInTheDocument();
   });
 
   it('bloqueia o painel da empresa para colaboradores', async () => {
@@ -70,9 +98,15 @@ describe('colaboradores (RH)', () => {
     await usuario.type(d.getByLabelText(/E-mail corporativo/), 'aaron.teste@oscorp.com');
     await usuario.selectOptions(d.getByLabelText(/^Cargo/), 'Analista de Dados');
     await usuario.selectOptions(d.getByLabelText(/^Departamento/), 'Tecnologia');
-    await usuario.click(screen.getByRole('button', { name: 'Enviar convite' }));
+    await usuario.click(d.getByRole('button', { name: 'Gerar' }));
+    expect(d.getByLabelText(/Senha provisória/).value).toHaveLength(10);
+    await usuario.click(screen.getByRole('button', { name: 'Adicionar' }));
 
-    expect(await screen.findByText('Convite enviado para aaron.teste@oscorp.com.')).toBeInTheDocument();
+    expect(
+      await screen.findByText(
+        'Aaron Teste foi adicionado(a). Repasse a senha provisória para o primeiro acesso.',
+      ),
+    ).toBeInTheDocument();
     const tabela = await screen.findByRole('table', { name: 'Lista de colaboradores' });
     expect(await within(tabela).findByText('Aaron Teste')).toBeInTheDocument();
   });
@@ -85,7 +119,8 @@ describe('colaboradores (RH)', () => {
     await usuario.type(d.getByLabelText(/E-mail corporativo/), 'ana.silveira@oscorp.com');
     await usuario.selectOptions(d.getByLabelText(/^Cargo/), 'Recrutadora');
     await usuario.selectOptions(d.getByLabelText(/^Departamento/), 'Recursos Humanos');
-    await usuario.click(screen.getByRole('button', { name: 'Enviar convite' }));
+    await usuario.type(d.getByLabelText(/Senha provisória/), 'provisoria123');
+    await usuario.click(screen.getByRole('button', { name: 'Adicionar' }));
     expect(await d.findByText('Já existe um colaborador com este e-mail.')).toBeInTheDocument();
   });
 
@@ -109,6 +144,12 @@ describe('acessibilidade (axe)', () => {
   it('início sem violações', async () => {
     const { container } = renderizarApp('/', { token: TOKEN_COLABORADOR });
     await screen.findByRole('heading', { level: 1, name: 'Olá, Ana' });
+    expect(await violacoesA11y(container)).toEqual([]);
+  });
+
+  it('troca de senha sem violações', async () => {
+    const { container } = renderizarApp('/trocar-senha', { token: TOKEN_COLABORADOR });
+    await screen.findByRole('heading', { name: 'Trocar senha' });
     expect(await violacoesA11y(container)).toEqual([]);
   });
 

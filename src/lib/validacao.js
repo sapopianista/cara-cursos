@@ -66,3 +66,20 @@ export const cnpj =
 
 export const minimo = (n, msg) => (v) =>
   v === '' || v == null || Number(v) >= n ? '' : (msg ?? `O valor mínimo é ${n}.`);
+
+/** Senha nova (mesma regra de Senhas.problema no backend): 8 a 128 caracteres, não só espaços. */
+export const TAMANHO_MINIMO_SENHA = 8;
+export const senha = () => (v) => {
+  if (!v) return 'Informe a senha.';
+  if (v.length < TAMANHO_MINIMO_SENHA) return `Use pelo menos ${TAMANHO_MINIMO_SENHA} caracteres.`;
+  if (v.length > 128) return 'Use no máximo 128 caracteres.';
+  if (!v.trim()) return 'A senha não pode ser só espaços.';
+  return '';
+};
+
+/** Senha provisória legível (sem 0/O, 1/l/I) para o RH repassar à pessoa. */
+export function gerarSenhaProvisoria(tamanho = 10) {
+  const caracteres = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const aleatorios = crypto.getRandomValues(new Uint32Array(tamanho));
+  return Array.from(aleatorios, (n) => caracteres[n % caracteres.length]).join('');
+}

@@ -59,7 +59,10 @@ CREATE TABLE cargos (
 -- ---------------------------------------------------------------------
 -- usuarios
 -- senha: HASH (nunca texto puro), formato pbkdf2_sha256$<iterações>$<salt>$<hash>.
---        NULL enquanto o convite não foi aceito (status 'pendente').
+--        NULL = ainda sem senha (não consegue entrar até alguém definir uma).
+-- trocar_senha: TRUE quando a senha foi definida pelo RH (inicial ou redefinida);
+--        a pessoa precisa trocá-la antes de usar o sistema.
+-- status 'pendente' = cadastrado, mas ainda não fez o primeiro acesso.
 -- tipo_perfil: os mesmos papéis do frontend (AuthContext).
 -- ---------------------------------------------------------------------
 CREATE TABLE usuarios (
@@ -68,6 +71,7 @@ CREATE TABLE usuarios (
   nome                 VARCHAR(120)      NOT NULL,
   email                VARCHAR(160)      NOT NULL,
   senha                VARCHAR(255)      NULL,
+  trocar_senha         BOOLEAN           NOT NULL DEFAULT FALSE,
   tipo_perfil          ENUM('admin', 'rh', 'lider', 'financeiro', 'colaborador')
                        NOT NULL DEFAULT 'colaborador',
   cargo                VARCHAR(80)       NOT NULL,

@@ -29,6 +29,9 @@ export const entrar = endpoint('auth', mock.entrar, (credenciais) => http.post('
 /** GET /auth/me -> usuario (valida o token salvo ao recarregar a página) */
 export const obterSessao = endpoint('auth', mock.obterSessao, () => http.get('/auth/me'));
 
+/** PUT /auth/senha  { senhaAtual, novaSenha } -> usuario (com trocarSenha: false) */
+export const alterarSenha = endpoint('auth', mock.alterarSenha, (dados) => http.put('/auth/senha', dados));
+
 /** POST /auth/logout */
 export const sair = endpoint('auth', mock.sair, () => http.post('/auth/logout'));
 
@@ -183,6 +186,13 @@ export const alterarStatusColaborador = endpoint(
   'colaboradores',
   mock.alterarStatusColaborador,
   (id, status) => http.patch(`/admin/colaboradores/${id}/status`, { status }),
+);
+
+/** PUT /admin/colaboradores/{id}/senha  { senha } -> 204 (senha provisória; a pessoa troca no próximo acesso) */
+export const redefinirSenhaColaborador = endpoint(
+  'colaboradores',
+  mock.redefinirSenhaColaborador,
+  (id, senha) => http.put(`/admin/colaboradores/${id}/senha`, { senha }),
 );
 
 /** GET /admin/colaboradores/{id}/progresso */

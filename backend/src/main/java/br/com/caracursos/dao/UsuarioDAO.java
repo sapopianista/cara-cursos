@@ -14,8 +14,8 @@ import br.com.caracursos.model.Usuario.TipoPerfil;
 /** Acesso à tabela {@code usuarios}. */
 public class UsuarioDAO {
 
-    static final String COLUNAS = "u.id, u.matricula, u.nome, u.email, u.senha, u.tipo_perfil, u.cargo, "
-            + "u.departamento, u.nivel, u.status, u.meta_semanal_minutos, u.notificacoes_email, "
+    static final String COLUNAS = "u.id, u.matricula, u.nome, u.email, u.senha, u.trocar_senha, u.tipo_perfil, "
+            + "u.cargo, u.departamento, u.nivel, u.status, u.meta_semanal_minutos, u.notificacoes_email, "
             + "u.resumo_semanal, u.ultimo_acesso, u.criado_em";
 
     private final Connection conexao;
@@ -45,12 +45,13 @@ public class UsuarioDAO {
 
     /** Insere e devolve o usuário com id e matrícula ({@code COL-0125}) preenchidos. */
     public Usuario inserir(Usuario u) throws SQLException {
-        String sql = "INSERT INTO usuarios (nome, email, senha, tipo_perfil, cargo, departamento, nivel, status, criado_em) "
-                + "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+        String sql = "INSERT INTO usuarios (nome, email, senha, trocar_senha, tipo_perfil, cargo, departamento, nivel, "
+                + "status, criado_em) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         Instant agora = Jdbc.agora();
         try (PreparedStatement ps = conexao.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
-            Jdbc.preencher(ps, u.getNome(), u.getEmail(), u.getSenha(), u.getTipoPerfil().getValorBanco(),
-                    u.getCargo(), u.getDepartamento(), u.getNivel(), u.getStatus().getValorBanco(), agora);
+            Jdbc.preencher(ps, u.getNome(), u.getEmail(), u.getSenha(), u.isTrocarSenha(),
+                    u.getTipoPerfil().getValorBanco(), u.getCargo(), u.getDepartamento(), u.getNivel(),
+                    u.getStatus().getValorBanco(), agora);
             ps.executeUpdate();
             try (ResultSet chaves = ps.getGeneratedKeys()) {
                 chaves.next();
@@ -79,6 +80,11 @@ public class UsuarioDAO {
     public void atualizarPreferencias(Usuario u) throws SQLException {
         executar("UPDATE usuarios SET meta_semanal_minutos = ?, notificacoes_email = ?, resumo_semanal = ? WHERE id = ?",
                 u.getMetaSemanalMinutos(), u.isNotificacoesEmail(), u.isResumoSemanal(), u.getId());
+    }
+
+    /** Grava o hash da senha. {@code trocar} = a pessoa precisa trocá-la no próximo acesso. */
+    public void definirSenha(int id, String hash, boolean trocar) throws SQLException {
+        executar("UPDATE usuarios SET senha = ?, trocar_senha = ? WHERE id = ?", hash, trocar, id);
     }
 
     public void registrarAcesso(int id, Instant quando) throws SQLException {
@@ -131,6 +137,7 @@ public class UsuarioDAO {
         Usuario u = new Usuario(rs.getInt("id"), rs.getString("nome"), rs.getString("email"),
                 rs.getString("senha"), TipoPerfil.deValorBanco(rs.getString("tipo_perfil")));
         u.setMatricula(rs.getString("matricula"));
+        u.setTrocarSenha(rs.getBoolean("trocar_senha"));
         u.setCargo(rs.getString("cargo"));
         u.setDepartamento(rs.getString("departamento"));
         u.setNivel(rs.getInt("nivel"));

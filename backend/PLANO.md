@@ -68,7 +68,7 @@ Escopo decidido para esta fase (tudo que o aluno usa e o núcleo do painel):
 | Relatórios | `/admin/relatorios/*` (PDF e CSV) | ✅ backend |
 | Faturamento | `/admin/faturamento/*` | ✅ backend |
 
-**Pronto:** os 55 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
+**Pronto:** os 59 testes passam (`mvnw test -DDB_TESTE_URL=jdbc:mysql://127.0.0.1:3306/`) e o frontend
 funciona com `VITE_USAR_MOCK=false`.
 
 ## Etapa 5 — Escopo do frontend com o banco ✅
@@ -94,7 +94,9 @@ funciona com `VITE_USAR_MOCK=false`.
 
 Ficaram de fora porque dependem de serviços externos ou de regras que ainda não existem no banco:
 
-1. ~~**Convite por e-mail**~~ — fora do escopo (decisão do projeto: sem envio de e-mails).
+1. ~~**Convite por e-mail**~~ — fora do escopo (decisão do projeto: sem envio de e-mails). No lugar: o RH define
+   uma **senha provisória** no cadastro (ou em "Redefinir senha"), e a pessoa é obrigada a trocá-la no primeiro
+   acesso (`usuarios.trocar_senha`; a API bloqueia as outras rotas com `403 TROCAR_SENHA` até a troca).
 2. ~~**Gestores e permissões**~~ ✅ — tabelas `gestores` (dados do convite) e `auditoria`; o papel continua em
    `usuarios.tipo_perfil`.
 3. ~~**Suporte**~~ ✅ — tabelas `chamados` e `faq`. A resposta da equipe ainda é manual (direto no banco).
