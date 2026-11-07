@@ -18,7 +18,7 @@ public class GestorDAO {
 
     /** Formato {@code Gestor} do contrato. {@code ultimoAcesso} só vem depois que o convite foi aceito. */
     public record Gestor(int id, int colaboradorId, String nome, String email, String departamento, String papel,
-                         boolean mfaAtivo, String status, Instant convidadoEm, Instant ultimoAcesso) {
+                         String status, Instant convidadoEm, Instant ultimoAcesso) {
     }
 
     public record Candidato(int id, String nome, String email, String departamento) {
@@ -28,7 +28,7 @@ public class GestorDAO {
     private static final String ACEITO = "(u.ultimo_acesso IS NOT NULL AND u.ultimo_acesso >= g.convidado_em)";
 
     private static final String SELECT = "SELECT u.id, u.nome, u.email, u.departamento, u.tipo_perfil, "
-            + "u.ultimo_acesso, g.mfa_ativo, g.convidado_em, " + ACEITO + " AS aceito "
+            + "u.ultimo_acesso, g.convidado_em, " + ACEITO + " AS aceito "
             + "FROM gestores g JOIN usuarios u ON u.id = g.id_usuario ";
 
     private final Connection conexao;
@@ -113,9 +113,8 @@ public class GestorDAO {
                     boolean aceito = rs.getBoolean("aceito");
                     int id = rs.getInt("id");
                     lista.add(new Gestor(id, id, rs.getString("nome"), rs.getString("email"),
-                            rs.getString("departamento"), rs.getString("tipo_perfil"), rs.getBoolean("mfa_ativo"),
-                            aceito ? "ativo" : "pendente", Jdbc.instante(rs, "convidado_em"),
-                            aceito ? Jdbc.instante(rs, "ultimo_acesso") : null));
+                            rs.getString("departamento"), rs.getString("tipo_perfil"), aceito ? "ativo" : "pendente",
+                            Jdbc.instante(rs, "convidado_em"), aceito ? Jdbc.instante(rs, "ultimo_acesso") : null));
                 }
             }
         }

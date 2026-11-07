@@ -8,7 +8,9 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
@@ -22,6 +24,7 @@ import br.com.caracursos.seguranca.Tokens;
 import br.com.caracursos.util.CertificadoPdf;
 import br.com.caracursos.util.Cnpj;
 import br.com.caracursos.util.Csv;
+import br.com.caracursos.util.TabelaPdf;
 
 /** Testes que não precisam de banco. */
 class UnidadeTest {
@@ -43,6 +46,22 @@ class UnidadeTest {
         limite.limpar("c@x.com");
         for (int i = 0; i < 4; i++) limite.registrarFalha("c@x.com", t0);
         assertTrue(limite.bloqueio("c@x.com", t0).isZero(), "login certo zera o contador");
+    }
+
+    @Test
+    void tabelaPdfQuebraEmPaginas() {
+        List<TabelaPdf.Coluna> colunas = List.of(new TabelaPdf.Coluna("Nome", 3, false),
+                new TabelaPdf.Coluna("Total", 1, true));
+        List<List<String>> linhas = new ArrayList<>();
+        for (int i = 0; i < 60; i++) linhas.add(List.of("Pessoa (" + i + ") com um nome bem comprido demais", "" + i));
+        String pdf = new String(TabelaPdf.gerar("Relatório", "Últimos 30 dias", colunas, linhas),
+                StandardCharsets.ISO_8859_1);
+        assertTrue(pdf.startsWith("%PDF-1.4"));
+        assertTrue(pdf.contains("/Count 3"), "60 linhas ocupam 3 páginas");
+        assertTrue(pdf.contains("Página 3 de 3"));
+        assertTrue(pdf.contains("Pessoa \\(0\\)"), "parênteses escapados");
+        assertTrue(new String(TabelaPdf.gerar("Vazio", "", colunas, List.of()), StandardCharsets.ISO_8859_1)
+                .contains("Nenhum dado"));
     }
 
     @Test

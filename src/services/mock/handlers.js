@@ -54,6 +54,7 @@ const montarUsuario = (colaboradorId) => {
     cargo: c.cargo,
     departamento: c.departamento,
     papel: gestor?.papel ?? PAPEL_COLABORADOR,
+    trocarSenha: Boolean(c.trocarSenha),
     empresa: { id: db.empresa.id, nome: db.empresa.nomeFantasia },
   };
 };
@@ -65,14 +66,40 @@ export function entrar({ identificador, senha }) {
     .trim()
     .toLowerCase();
   const colaborador = db.colaboradores.find((c) => c.email === email);
-  if (!colaborador || String(senha ?? '').length < 6) {
+  // Quem tem senha definida pelo RH precisa dela; as contas de demonstração aceitam qualquer uma com 6+.
+  const senhaErrada = colaborador?.senha ? senha !== colaborador.senha : String(senha ?? '').length < 6;
+  if (!colaborador || senhaErrada) {
     return falhar(401, 'E-mail ou senha incorretos.', { codigo: 'CREDENCIAIS_INVALIDAS' }, 600);
   }
   if (colaborador.status === 'inativo') {
     return falhar(403, 'Seu acesso está desativado. Fale com o RH da sua empresa.', {}, 600);
   }
+  if (colaborador.status === 'pendente') colaborador.status = 'ativo';
+  colaborador.ultimoAcesso = new Date().toISOString();
   usuarioLogadoId = colaborador.id;
   return responder({ token: `mock-token-${colaborador.id}`, usuario: usuarioAtual() }, 600);
+}
+
+const problemaSenha = (s) => {
+  if (!s) return 'Informe a senha.';
+  if (s.length < 8) return 'Use pelo menos 8 caracteres.';
+  if (s.length > 128) return 'Use no máximo 128 caracteres.';
+  if (!s.trim()) return 'A senha não pode ser só espaços.';
+  return null;
+};
+
+export function alterarSenha({ senhaAtual, novaSenha }) {
+  const c = db.colaboradores.find((x) => x.id === usuarioLogadoId);
+  const campos = {};
+  if (!senhaAtual) campos.senhaAtual = 'Informe a senha atual.';
+  else if (c.senha && senhaAtual !== c.senha) campos.senhaAtual = 'Senha atual incorreta.';
+  const problema = problemaSenha(novaSenha);
+  if (problema) campos.novaSenha = problema;
+  else if (novaSenha === senhaAtual) campos.novaSenha = 'A nova senha precisa ser diferente da atual.';
+  if (Object.keys(campos).length) return falhar(422, 'Revise os campos destacados.', { campos });
+  c.senha = novaSenha;
+  c.trocarSenha = false;
+  return responder(usuarioAtual(), 500);
 }
 
 export function obterSessao(token) {
@@ -531,6 +558,8 @@ const validarColaborador = (dados, idAtual) => {
 
 export function criarColaborador(dados) {
   const campos = validarColaborador(dados);
+  const problema = problemaSenha(dados.senhaInicial);
+  if (problema) campos.senhaInicial = problema;
   if (Object.keys(campos).length) return falhar(422, 'Revise os campos destacados.', { campos });
   if (licencasEmUso() >= db.contrato.licencasContratadas) {
     return falhar(409, 'Todas as licenças estão em uso. Contrate mais licenças em Plano e faturamento.', {
@@ -551,9 +580,12 @@ export function criarColaborador(dados) {
     status: 'pendente',
     ultimoAcesso: null,
     criadoEm: new Date().toISOString(),
+    senha: dados.senhaInicial,
+    trocarSenha: true,
   };
   db.colaboradores.push(novo);
-  return responder(novo, 500);
+  const { senha: _senha, trocarSenha: _trocar, ...publico } = novo;
+  return responder(publico, 500);
 }
 
 export function atualizarColaborador(id, dados) {
@@ -567,6 +599,24 @@ export function atualizarColaborador(id, dados) {
     nivel: Number(dados.nivel) || c.nivel,
   });
   return responder(c, 400);
+}
+
+export function redefinirSenhaColaborador(id, senha) {
+  const c = db.colaboradores.find((x) => x.id === Number(id));
+  if (!c) return falhar(404, 'Colaborador não encontrado.');
+  const quem = usuarioAtual();
+  if (!['admin', 'rh'].includes(quem?.papel)) {
+    return falhar(403, 'Só administradores e o RH podem redefinir senhas.');
+  }
+  if (c.id === usuarioLogadoId) return falhar(409, 'Para trocar a sua senha, use Meu perfil.');
+  if (montarUsuario(c.id).papel !== PAPEL_COLABORADOR && quem.papel !== 'admin') {
+    return falhar(403, 'Só um administrador pode redefinir a senha de um gestor.');
+  }
+  const problema = problemaSenha(senha);
+  if (problema) return falhar(422, 'Revise os campos destacados.', { campos: { senha: problema } });
+  c.senha = senha;
+  c.trocarSenha = true;
+  return responder(null, 400);
 }
 
 export function alterarStatusColaborador(id, status) {
@@ -663,7 +713,6 @@ export function convidarGestor({ colaboradorId, papel }) {
     id: proximoId(db.gestores),
     colaboradorId: c.id,
     papel,
-    mfaAtivo: false,
     status: 'pendente',
     convidadoEm: new Date().toISOString(),
   };

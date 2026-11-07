@@ -15,12 +15,17 @@ function VerificandoSessao() {
   );
 }
 
-/** Exige login. Sem sessão, vai para /login e volta para a página pedida depois. */
+/**
+ * Exige login. Sem sessão, vai para /login e volta para a página pedida depois.
+ * Com senha provisória (definida pelo RH), só a troca de senha fica acessível.
+ */
 export function RotaProtegida() {
-  const { status } = useAuth();
+  const { status, usuario } = useAuth();
   const location = useLocation();
   if (status === 'verificando') return <VerificandoSessao />;
   if (status === 'anonimo') return <Navigate to="/login" replace state={{ de: location }} />;
+  if (usuario?.trocarSenha && location.pathname !== '/trocar-senha')
+    return <Navigate to="/trocar-senha" replace />;
   return <Outlet />;
 }
 

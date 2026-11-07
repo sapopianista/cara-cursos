@@ -30,7 +30,8 @@ class ConfiguracaoIntegracaoTest {
         JsonObject org = atual.getAsJsonObject("organizacao");
         assertEquals("11.222.333/0001-81", org.get("cnpj").getAsString());
         assertEquals("oscorp.com, lab.oscorp.com", org.get("dominiosAutorizados").getAsString());
-        assertTrue(atual.getAsJsonObject("politicas").get("exigir2FA").getAsBoolean());
+        assertTrue(atual.getAsJsonObject("politicas").get("certificacaoAutomatica").getAsBoolean());
+        assertFalse(atual.getAsJsonObject("politicas").has("exigir2FA"));
 
         JsonObject invalido = api.esperar(422, "PUT", "/admin/configuracoes", Map.of(
                 "organizacao", Map.of("nomeFantasia", "", "razaoSocial", "Oscorp", "cnpj", "11.222.333/0001-82",
@@ -43,7 +44,7 @@ class ConfiguracaoIntegracaoTest {
                         "cnpj", "11222333000181", "emailNotificacao", "RH@Oscorp.com", "fusoHorario", "America/Manaus",
                         "dominiosAutorizados", "Oscorp.com,lab.oscorp.com, oscorp.com"),
                 "politicas", Map.of("exigirPresencaMinima", false, "certificacaoAutomatica", true,
-                        "permitirDownloadMateriais", true, "exigir2FA", false)), admin).getAsJsonObject();
+                        "permitirDownloadMateriais", true)), admin).getAsJsonObject();
         JsonObject novaOrg = salvo.getAsJsonObject("organizacao");
         assertEquals("11.222.333/0001-81", novaOrg.get("cnpj").getAsString());
         assertEquals("rh@oscorp.com", novaOrg.get("emailNotificacao").getAsString());

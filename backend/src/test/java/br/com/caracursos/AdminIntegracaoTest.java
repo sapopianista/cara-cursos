@@ -29,7 +29,8 @@ class AdminIntegracaoTest {
     }
 
     private static Map<String, Object> novo(String nome, String email) {
-        return Map.of("nome", nome, "email", email, "cargo", "Estagiário", "departamento", "Tecnologia", "nivel", 1);
+        return Map.of("nome", nome, "email", email, "cargo", "Estagiário", "departamento", "Tecnologia", "nivel", 1,
+                "senhaInicial", "provisoria123");
     }
 
     @Test
@@ -59,8 +60,9 @@ class AdminIntegracaoTest {
         assertEquals("Já existe um colaborador com este e-mail.",
                 duplicado.getAsJsonObject("campos").get("email").getAsString());
         JsonObject invalido = api.esperar(422, "POST", "/admin/colaboradores",
-                Map.of("nome", "", "email", "x", "cargo", "Astronauta"), admin).getAsJsonObject();
-        assertEquals(4, invalido.getAsJsonObject("campos").size());
+                Map.of("nome", "", "email", "x", "cargo", "Astronauta", "senhaInicial", "curta"), admin)
+                .getAsJsonObject();
+        assertEquals(5, invalido.getAsJsonObject("campos").size());
 
         JsonObject criado = api.esperar(200, "POST", "/admin/colaboradores",
                 novo("Nova Pessoa", "nova.pessoa@oscorp.com"), admin).getAsJsonObject();

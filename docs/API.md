@@ -71,9 +71,18 @@ Usado ao recarregar a página para validar o token salvo.
 
 ### `POST /auth/logout` → `204`
 
+### `PUT /auth/senha` `{ senhaAtual, novaSenha }` → `Usuario`
+A própria pessoa troca a senha. `422` com `campos.senhaAtual` (incorreta) ou `campos.novaSenha` (8 a 128
+caracteres, diferente da atual).
+
 ```ts
-Usuario = { id, nome, email, cargo, departamento, papel, empresa: { id, nome } }
+Usuario = { id, nome, email, cargo, departamento, papel, trocarSenha: boolean, empresa: { id, nome } }
 ```
+
+**Senha provisória.** Não há envio de e-mail: o RH define uma senha provisória ao cadastrar (ou ao redefinir).
+Enquanto `trocarSenha` for `true`, a API só aceita `GET /auth/me`, `PUT /auth/senha` e `POST /auth/logout`;
+as demais rotas respondem `403 TROCAR_SENHA`, e o frontend leva a pessoa para `/trocar-senha`.
+O primeiro login muda o status do colaborador de `pendente` para `ativo`.
 
 ## Aluno
 
@@ -235,8 +244,9 @@ chamados; no `gestor`, os chamados de todos os gestores da empresa.
 | GET | `/admin/colaboradores` | `busca, status (todos\|ativo\|pendente\|inativo), departamento, pagina, porPagina` | `Pagina<Colaborador>` |
 | GET | `/admin/colaboradores/resumo` | — | `{ total, ativos, pendentes, inativos, conclusaoMedia, licencas: { emUso, contratadas } }` |
 | GET | `/admin/colaboradores/opcoes` | — | `{ cargos: string[], departamentos: string[], niveis: number[] }` |
-| POST | `/admin/colaboradores` | `{ nome, email, cargo, departamento, nivel }` | `Colaborador` (status `pendente`; envia convite por e-mail) |
-| PUT | `/admin/colaboradores/{id}` | mesmo corpo | `Colaborador` |
+| POST | `/admin/colaboradores` | `{ nome, email, cargo, departamento, nivel, senhaInicial }` | `Colaborador` (status `pendente` até o primeiro acesso) |
+| PUT | `/admin/colaboradores/{id}` | mesmo corpo, sem `senhaInicial` | `Colaborador` |
+| PUT | `/admin/colaboradores/{id}/senha` | `{ senha }` | `204` (senha provisória; encerra as sessões da pessoa) |
 | PATCH | `/admin/colaboradores/{id}/status` | `{ status: 'ativo' \| 'inativo' }` | `Colaborador` |
 | GET | `/admin/colaboradores/{id}/progresso` | — | `{ colaborador, cursos: { curso: {id,titulo}, progresso, status }[] }` |
 | GET | `/admin/colaboradores/exportar` | mesmos filtros da listagem | `text/csv` (UTF-8 com BOM, separador `;`) |
@@ -246,6 +256,8 @@ Colaborador = { id, matricula, nome, email, cargo, departamento, nivel, progress
                 cursosConcluidos, status, ultimoAcesso | null, criadoEm }
 ```
 Regras: e-mail único (`422`, `campos.email`); sem licença livre → `409 SEM_LICENCAS`; não pode desativar a si mesmo.
+Senhas (`senhaInicial`, `senha`): 8 a 128 caracteres (`422`). Redefinir senha: só admin e rh (`403`); a senha de um
+gestor só o admin redefine (`403`); a própria senha não (`409 PROPRIA_SENHA`, use `PUT /auth/senha`). Entra na auditoria.
 
 ### Gestores e permissões
 | Método | Rota | Corpo | Resposta |
@@ -258,7 +270,7 @@ Regras: e-mail único (`422`, `campos.email`); sem licença livre → `409 SEM_L
 | GET | `/admin/auditoria` | — | `{ id, acao, descricao, autor, criadoEm }[]` (últimos 10) |
 
 ```ts
-Gestor = { id, colaboradorId, nome, email, departamento, papel, mfaAtivo, status: 'ativo'|'pendente', convidadoEm, ultimoAcesso | null }
+Gestor = { id, colaboradorId, nome, email, departamento, papel, status: 'ativo'|'pendente', convidadoEm, ultimoAcesso | null }
 ```
 Regras: sempre ao menos um `admin` ativo (`409 ULTIMO_ADMIN`); ninguém revoga o próprio acesso (`409 PROPRIO_ACESSO`);
 toda alteração gera auditoria.
@@ -268,14 +280,20 @@ feito; o gestor fica `pendente` até entrar no sistema depois do convite, e reen
 `409 CONVITE_ACEITO`. O e-mail do convite ainda não é enviado (depende de SMTP).
 
 ### Relatórios
-- `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'xlsx'|'csv' }[], departamentos: string[], historico: Relatorio[] }`
+- `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'csv' }[], departamentos: string[], historico: Relatorio[] }`
 - `POST /admin/relatorios` `{ modeloId, periodo: '7dias'|'30dias'|'trimestre'|'ano', departamento?: string }` → `Relatorio` com `status: 'processando'`
 - `GET /admin/relatorios/{id}/arquivo` → arquivo (quando `url` não vier no JSON)
 
 ```ts
 Relatorio = { id, modeloId, modelo, periodo, departamento | null, status: 'processando'|'pronto'|'erro', solicitadoPor, criadoEm, url | null }
 ```
-A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 s enquanto houver item `processando`.
+O front consulta `GET /admin/relatorios` a cada 2,5 s enquanto houver item `processando`.
+
+No backend Java a geração é **síncrona**: o `POST` já devolve `status: 'pronto'` e `url` apontando para
+`/admin/relatorios/{id}/arquivo`; o navegador baixa o arquivo para a pasta Downloads. O arquivo fica guardado no
+banco (tabela `relatorios`), então baixar de novo traz os números do dia em que foi gerado. O histórico mostra os
+20 mais recentes. Papéis: admin, rh e lider. Modelos: `engajamento` (CSV), `conclusao` (PDF), `horas` (PDF),
+`satisfacao` (CSV), `individual` (PDF) e `conformidade` (CSV; obrigatórios = cursos da categoria Conformidade).
 
 ### Plano e faturamento
 - `GET /admin/faturamento`
@@ -290,6 +308,12 @@ A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 
 ```
 - `POST /admin/faturamento/licencas` `{ quantidade }` (1–500) → `{ licencasContratadas }`
 
+Papéis: admin e financeiro. No backend Java não há sistema de cobrança: contrato e faturas vêm do banco (tabelas
+`contrato` e `faturas`). `licencasContratadas` é a mesma de `empresa.licencas_contratadas`, que limita o cadastro de
+colaboradores; contratar licenças entra na auditoria. Fatura `aberta` cujo dia de vencimento já passou é devolvida
+como `vencida`. `notaFiscal.url` aponta para `GET /admin/faturamento/faturas/{id}/nota`, um **demonstrativo** da
+fatura em PDF (sem valor fiscal).
+
 ### Configurações
 - `GET /admin/configuracoes`
 - `PUT /admin/configuracoes`
@@ -299,7 +323,7 @@ A geração é assíncrona: o front consulta `GET /admin/relatorios` a cada 2,5 
                    "emailNotificacao": "educacao@oscorp.com", "fusoHorario": "America/Sao_Paulo",
                    "dominiosAutorizados": "oscorp.com, lab.oscorp.com" },
   "politicas": { "exigirPresencaMinima": true, "certificacaoAutomatica": true,
-                 "permitirDownloadMateriais": true, "exigir2FA": true }
+                 "permitirDownloadMateriais": true }
 }
 ```
 Validar CNPJ (dígitos verificadores) e e-mail; responder `422` com `campos.cnpj` / `campos.emailNotificacao`.

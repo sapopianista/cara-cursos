@@ -11,6 +11,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.regex.Pattern;
 
+import br.com.caracursos.dao.AuditoriaDAO;
 import br.com.caracursos.dao.ColaboradorDAO;
 import br.com.caracursos.dao.ColaboradorDAO.Colaborador;
 import br.com.caracursos.dao.MatriculaDAO;
@@ -23,6 +24,7 @@ import br.com.caracursos.http.Roteador;
 import br.com.caracursos.model.Curso;
 import br.com.caracursos.model.Usuario;
 import br.com.caracursos.seguranca.Permissao;
+import br.com.caracursos.seguranca.Senhas;
 import br.com.caracursos.util.Csv;
 import br.com.caracursos.util.Relogio;
 
@@ -46,6 +48,7 @@ public class ColaboradorRecurso {
         r.put("/admin/colaboradores/{id}", p, this::atualizar);
         r.patch("/admin/colaboradores/{id}/status", p, this::alterarStatus);
         r.get("/admin/colaboradores/{id}/progresso", p, this::progresso);
+        r.put("/admin/colaboradores/{id}/senha", p, this::redefinirSenha);
     }
 
     private static ColaboradorDAO.Filtro filtro(Requisicao req) {
@@ -110,16 +113,31 @@ public class ColaboradorRecurso {
         return ApiException.conflito("SEM_LICENCAS", mensagem);
     }
 
-    /** Cria com status "pendente" (o convite por e-mail ainda não é enviado; ver PLANO.md). */
+    /**
+     * Cria com a senha inicial informada pelo RH (não há envio de e-mail). Fica "pendente" até
+     * o primeiro acesso, e a pessoa precisa trocar a senha antes de usar o sistema.
+     */
     private Object criar(Requisicao req) throws SQLException {
-        Dados d = validar(req, null, 1);
+        String senha = req.textoOriginal("senhaInicial");
+        String problema = Senhas.problema(senha);
+        Dados d;
+        try {
+            d = validar(req, null, 1);
+        } catch (ApiException e) {
+            if (problema == null || e.getCampos() == null) throw e;
+            Map<String, String> campos = new LinkedHashMap<>(e.getCampos());
+            campos.put("senhaInicial", problema);
+            throw ApiException.validacao(campos);
+        }
+        if (problema != null) throw ApiException.validacao(Map.of("senhaInicial", problema));
         try {
             int id = req.transacao(c -> {
                 UsuarioDAO usuarios = new UsuarioDAO(c);
                 if (usuarios.contarLicencasEmUso() >= usuarios.licencasContratadas()) {
                     throw semLicencas("Todas as licenças estão em uso. Contrate mais licenças em Plano e faturamento.");
                 }
-                Usuario u = new Usuario(d.nome(), d.email(), null, Usuario.TipoPerfil.COLABORADOR);
+                Usuario u = new Usuario(d.nome(), d.email(), Senhas.gerar(senha), Usuario.TipoPerfil.COLABORADOR);
+                u.setTrocarSenha(true);
                 u.setCargo(d.cargo());
                 u.setDepartamento(d.departamento());
                 u.setNivel(d.nivel());
@@ -176,6 +194,36 @@ public class ColaboradorRecurso {
             return null;
         });
         return new ColaboradorDAO(req.conexao()).buscar(u.getId());
+    }
+
+    /**
+     * Define uma senha provisória (ex.: a pessoa esqueceu a dela). Só admin e RH; a senha de um
+     * gestor só o admin redefine, para ninguém assumir uma conta com mais acesso que a sua.
+     */
+    private Object redefinirSenha(Requisicao req) throws SQLException {
+        Usuario quem = req.usuario();
+        Usuario.TipoPerfil papel = quem.getTipoPerfil();
+        if (papel != Usuario.TipoPerfil.ADMIN && papel != Usuario.TipoPerfil.RH) {
+            throw ApiException.proibido("Só administradores e o RH podem redefinir senhas.");
+        }
+        Usuario u = existente(req);
+        if (u.getId().equals(quem.getId())) {
+            throw ApiException.conflito("PROPRIA_SENHA", "Para trocar a sua senha, use Meu perfil.");
+        }
+        if (u.getTipoPerfil() != Usuario.TipoPerfil.COLABORADOR && papel != Usuario.TipoPerfil.ADMIN) {
+            throw ApiException.proibido("Só um administrador pode redefinir a senha de um gestor.");
+        }
+        String senha = req.textoOriginal("senha");
+        String problema = Senhas.problema(senha);
+        if (problema != null) throw ApiException.validacao(Map.of("senha", problema));
+
+        req.transacao(c -> {
+            new UsuarioDAO(c).definirSenha(u.getId(), Senhas.gerar(senha), true);
+            new SessaoDAO(c).revogarTodas(u.getId());
+            new AuditoriaDAO(c).registrar(quem, "Senha redefinida", "redefiniu a senha de " + u.getNome() + ".");
+            return null;
+        });
+        return null;
     }
 
     private Object progresso(Requisicao req) throws SQLException {

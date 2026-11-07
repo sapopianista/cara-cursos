@@ -1,6 +1,17 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { BarChart3, Download, Pencil, Plus, Search, UserCheck, UserX, Users } from 'lucide-react';
+import {
+  BarChart3,
+  Download,
+  KeyRound,
+  Pencil,
+  Plus,
+  Search,
+  UserCheck,
+  UserX,
+  Users,
+  Wand2,
+} from 'lucide-react';
 import useApi from '../../hooks/useApi';
 import useMutacao from '../../hooks/useMutacao';
 import { useDebounce } from '../../hooks/utilitarios';
@@ -13,11 +24,13 @@ import {
   getProgressoColaborador,
   getResumoColaboradores,
   listarColaboradores,
+  redefinirSenhaColaborador,
 } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { relativo } from '../../lib/formatadores';
 import { STATUS_COLABORADOR, STATUS_CURSO } from '../../lib/rotulos';
-import { email, obrigatorio, validar } from '../../lib/validacao';
+import { email, gerarSenhaProvisoria, obrigatorio, senha, validar } from '../../lib/validacao';
 import Pagina from '../../components/ui/Pagina';
 import Avatar from '../../components/ui/Avatar';
 import Button from '../../components/ui/Button';
@@ -33,13 +46,44 @@ import { StatCard, StatGrid } from '../../components/ui/StatCard';
 import { ErroCarregamento, Skeleton, SkeletonPagina, Vazio } from '../../components/ui/Estados';
 
 const POR_PAGINA = 10;
-const FORM_VAZIO = { nome: '', email: '', cargo: '', departamento: '', nivel: '1' };
+const FORM_VAZIO = { nome: '', email: '', cargo: '', departamento: '', nivel: '1', senhaInicial: '' };
 const REGRAS = {
   nome: [obrigatorio('Informe o nome completo.')],
   email: [obrigatorio('Informe o e-mail corporativo.'), email()],
   cargo: [obrigatorio('Escolha um cargo.')],
   departamento: [obrigatorio('Escolha um departamento.')],
 };
+const REGRAS_CADASTRO = { ...REGRAS, senhaInicial: [senha()] };
+/** Quem pode redefinir senhas (o backend ainda exige admin para a senha de um gestor). */
+const PAPEIS_REDEFINIR_SENHA = ['admin', 'rh'];
+
+/** Senha provisória visível (o RH copia e repassa), com botão "Gerar". */
+function CampoSenhaProvisoria({ rotulo, value, onChange, erro, dica }) {
+  return (
+    <div className="flex items-start gap-2">
+      <CampoTexto
+        rotulo={rotulo}
+        obrigatorio
+        className="min-w-0 flex-1"
+        inputClassName="font-mono"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        erro={erro}
+        dica={dica}
+        autoComplete="off"
+        spellCheck="false"
+      />
+      <Button
+        variante="secondary"
+        iconeEsquerda={Wand2}
+        className="mt-7 shrink-0"
+        onClick={() => onChange(gerarSenhaProvisoria())}
+      >
+        Gerar
+      </Button>
+    </div>
+  );
+}
 
 /** Cadastro e edição (mesmo formulário). Remontado (key) a cada abertura: começa sempre limpo. */
 function FormColaborador({ aberto, onFechar, colaborador, opcoes, onSalvo }) {
@@ -60,10 +104,15 @@ function FormColaborador({ aberto, onFechar, colaborador, opcoes, onSalvo }) {
 
   const enviar = async (e) => {
     e.preventDefault();
-    const encontrados = validar(valores, REGRAS);
+    const encontrados = validar(valores, editando ? REGRAS : REGRAS_CADASTRO);
     setErrosLocais(encontrados);
     if (Object.keys(encontrados).length) return;
-    const salvo = await executar({ ...valores, nivel: Number(valores.nivel) });
+    const { senhaInicial, ...dados } = valores;
+    const salvo = await executar({
+      ...dados,
+      nivel: Number(valores.nivel),
+      ...(editando ? {} : { senhaInicial }),
+    });
     if (salvo) onSalvo(salvo, editando);
   };
 
@@ -74,7 +123,9 @@ function FormColaborador({ aberto, onFechar, colaborador, opcoes, onSalvo }) {
       onFechar={() => !executando && onFechar()}
       titulo={editando ? `Editar ${colaborador.nome}` : 'Adicionar colaborador'}
       descricao={
-        editando ? undefined : 'A pessoa recebe um convite por e-mail para criar a senha. Usa 1 licença.'
+        editando
+          ? undefined
+          : 'Defina uma senha provisória e repasse à pessoa; ela cria a própria senha no primeiro acesso. Usa 1 licença.'
       }
       rodape={
         <>
@@ -82,7 +133,7 @@ function FormColaborador({ aberto, onFechar, colaborador, opcoes, onSalvo }) {
             Cancelar
           </Button>
           <Button type="submit" form={formId} carregando={executando}>
-            {editando ? 'Salvar alterações' : 'Enviar convite'}
+            {editando ? 'Salvar alterações' : 'Adicionar'}
           </Button>
         </>
       }
@@ -140,6 +191,71 @@ function FormColaborador({ aberto, onFechar, colaborador, opcoes, onSalvo }) {
           onChange={alterar('nivel')}
           dica="Define quais cursos ficam liberados no início."
         />
+        {!editando && (
+          <CampoSenhaProvisoria
+            rotulo="Senha provisória"
+            value={valores.senhaInicial}
+            onChange={(v) => alterar('senhaInicial')({ target: { value: v } })}
+            erro={erros.senhaInicial}
+            dica="Pelo menos 8 caracteres. Anote antes de salvar: ela não aparece de novo."
+          />
+        )}
+      </form>
+    </Modal>
+  );
+}
+
+/** Define uma senha provisória (ex.: a pessoa esqueceu a dela). Remontado a cada abertura. */
+function ModalRedefinirSenha({ colaborador, onFechar }) {
+  const toast = useToast();
+  const [valor, setValor] = useState(() => gerarSenhaProvisoria());
+  const [erroLocal, setErroLocal] = useState('');
+  const { executar, executando, erro, errosCampos } = useMutacao(redefinirSenhaColaborador);
+
+  const enviar = async (e) => {
+    e.preventDefault();
+    const problema = senha()(valor);
+    setErroLocal(problema);
+    if (problema) return;
+    const ok = await executar(colaborador.id, valor);
+    if (ok === undefined) return;
+    toast.sucesso(`Senha provisória definida. Repasse a ${colaborador.nome.split(' ')[0]}.`);
+    onFechar();
+  };
+
+  return (
+    <Modal
+      aberto
+      onFechar={() => !executando && onFechar()}
+      titulo={`Redefinir senha de ${colaborador.nome}`}
+      descricao="A pessoa sai de todas as sessões e cria uma senha nova no próximo acesso."
+      rodape={
+        <>
+          <Button variante="ghost" onClick={onFechar} disabled={executando}>
+            Cancelar
+          </Button>
+          <Button type="submit" form="form-redefinir-senha" carregando={executando}>
+            Redefinir senha
+          </Button>
+        </>
+      }
+    >
+      <form id="form-redefinir-senha" onSubmit={enviar} noValidate className="space-y-4">
+        {erro && !Object.keys(errosCampos).length && (
+          <p role="alert" className="rounded-xl border border-danger/40 bg-danger/10 p-3 text-sm text-danger">
+            {erro.message}
+          </p>
+        )}
+        <CampoSenhaProvisoria
+          rotulo="Senha provisória"
+          value={valor}
+          onChange={(v) => {
+            setValor(v);
+            setErroLocal('');
+          }}
+          erro={erroLocal || errosCampos.senha}
+          dica="Anote antes de confirmar: ela não aparece de novo."
+        />
       </form>
     </Modal>
   );
@@ -170,7 +286,7 @@ function ModalProgresso({ colaborador, onFechar }) {
       ) : dados.cursos.length === 0 ? (
         <Vazio
           titulo="Ainda sem cursos"
-          descricao="Esta pessoa ainda não aceitou o convite ou não começou nenhum curso."
+          descricao="Esta pessoa ainda não fez o primeiro acesso ou não começou nenhum curso."
         />
       ) : (
         <ul className="space-y-3">
@@ -194,6 +310,9 @@ function ModalProgresso({ colaborador, onFechar }) {
 
 export default function Colaboradores() {
   const toast = useToast();
+  const { usuario } = useAuth();
+  const podeRedefinirSenha = PAPEIS_REDEFINIR_SENHA.includes(usuario?.papel);
+  const [redefinirSenha, setRedefinirSenha] = useState(null);
   const [busca, setBusca] = useState('');
   const buscaDebounced = useDebounce(busca.trim(), 350);
   const [status, setStatus] = useState('todos');
@@ -221,7 +340,11 @@ export default function Colaboradores() {
 
   const aoSalvar = (salvo, editando) => {
     fecharForm();
-    toast.sucesso(editando ? 'Dados atualizados.' : `Convite enviado para ${salvo.email}.`);
+    toast.sucesso(
+      editando
+        ? 'Dados atualizados.'
+        : `${salvo.nome} foi adicionado(a). Repasse a senha provisória para o primeiro acesso.`,
+    );
     recarregarTudo();
   };
 
@@ -323,6 +446,12 @@ export default function Colaboradores() {
             { rotulo: 'Ver progresso', icone: BarChart3, onClick: () => setVerProgresso(c) },
             { rotulo: 'Editar dados', icone: Pencil, onClick: () => abrirForm(c) },
             {
+              rotulo: 'Redefinir senha',
+              icone: KeyRound,
+              oculto: !podeRedefinirSenha || c.id === usuario?.id || c.status === 'inativo',
+              onClick: () => setRedefinirSenha(c),
+            },
+            {
               rotulo: 'Desativar acesso',
               icone: UserX,
               perigoso: true,
@@ -360,9 +489,9 @@ export default function Colaboradores() {
       <StatGrid colunas={4}>
         <StatCard rotulo="Ativos" valor={r.ativos} detalhe={`de ${r.total} cadastrados`} />
         <StatCard
-          rotulo="Convites pendentes"
+          rotulo="Aguardando 1º acesso"
           valor={r.pendentes}
-          detalhe="Ainda não criaram a senha"
+          detalhe="Ainda não entraram com a senha provisória"
           tomDetalhe={r.pendentes ? 'alerta' : 'muted'}
         />
         <StatCard
@@ -469,6 +598,13 @@ export default function Colaboradores() {
       )}
 
       <ModalProgresso colaborador={verProgresso} onFechar={() => setVerProgresso(null)} />
+      {redefinirSenha && (
+        <ModalRedefinirSenha
+          key={redefinirSenha.id}
+          colaborador={redefinirSenha}
+          onFechar={() => setRedefinirSenha(null)}
+        />
+      )}
 
       <ConfirmDialog
         aberto={Boolean(confirmarStatus)}

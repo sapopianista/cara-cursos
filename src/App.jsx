@@ -8,6 +8,7 @@ import { CarregandoTela } from './components/ui/Estados';
 
 // Cada tela vira um arquivo JS separado, baixado só quando é aberta.
 const Login = lazy(() => import('./pages/Login'));
+const TrocarSenha = lazy(() => import('./pages/TrocarSenha'));
 const NaoEncontrada = lazy(() => import('./pages/NaoEncontrada'));
 
 const Inicio = lazy(() => import('./pages/aluno/Inicio'));
@@ -47,6 +48,7 @@ function InicioAdmin() {
  *   /cursos/:id[/aulas/:aulaId]  Sala de aula
  *   /progresso                Níveis e certificados
  *   /perfil, /suporte
+ *   /trocar-senha             Troca de senha (obrigatória com senha provisória do RH)
  *
  * Painel da empresa (papéis admin, rh, lider, financeiro — ver AuthContext)
  *   /admin, /admin/colaboradores, /admin/relatorios, /admin/gestores,
@@ -61,6 +63,7 @@ export default function App() {
         </Route>
 
         <Route element={<RotaProtegida />}>
+          <Route path="trocar-senha" element={<TrocarSenha />} />
           <Route element={<AppLayout variant="aluno" />}>
             <Route index element={<Inicio />} />
 

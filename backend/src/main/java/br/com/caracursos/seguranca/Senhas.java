@@ -31,6 +31,18 @@ public final class Senhas {
     private Senhas() {
     }
 
+    public static final int TAMANHO_MINIMO = 8;
+    public static final int TAMANHO_MAXIMO = 128;
+
+    /** Regra de senha nova (mesma do frontend): o que há de errado, ou {@code null} se está boa. */
+    public static String problema(String senha) {
+        if (senha == null || senha.isEmpty()) return "Informe a senha.";
+        if (senha.length() < TAMANHO_MINIMO) return "Use pelo menos " + TAMANHO_MINIMO + " caracteres.";
+        if (senha.length() > TAMANHO_MAXIMO) return "Use no máximo " + TAMANHO_MAXIMO + " caracteres.";
+        if (senha.isBlank()) return "A senha não pode ser só espaços.";
+        return null;
+    }
+
     public static String gerar(String senha) {
         byte[] salt = new byte[BYTES_SALT];
         ALEATORIO.nextBytes(salt);

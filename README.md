@@ -42,8 +42,8 @@ O Maven vem junto (`backend/mvnw.cmd`). O WAR continua compatível com Tomcat 10
 3. Em desenvolvimento, `/api` é redirecionado para `http://localhost:8080` (ver `vite.config.js`). Em produção,
    defina `VITE_API_URL` com a URL pública da API.
 
-Os módulos que o backend ainda não implementa (relatórios e faturamento)
-estão em `MODULOS_SO_NO_MOCK` (`src/services/api.js`) e continuam simulados mesmo com o mock desligado.
+Com o mock desligado, **todas** as telas usam o backend (a lista `MODULOS_SO_NO_MOCK` em `src/services/api.js`
+está vazia; serve para manter um módulo simulado no futuro, se preciso).
 O contrato completo dos endpoints está em **[docs/API.md](docs/API.md)**.
 
 Convenções esperadas do backend (detalhes em `docs/API.md`):

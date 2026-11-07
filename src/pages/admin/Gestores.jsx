@@ -13,7 +13,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { dataHora, plural, relativo } from '../../lib/formatadores';
-import { MFA, STATUS_GESTOR } from '../../lib/rotulos';
+import { STATUS_GESTOR } from '../../lib/rotulos';
 import Pagina, { Secao } from '../../components/ui/Pagina';
 import Avatar from '../../components/ui/Avatar';
 import Button from '../../components/ui/Button';
@@ -88,7 +88,6 @@ export default function Gestores() {
   const { gestores, papeis, candidatos } = dados;
   const nomePapel = (id) => papeis.find((p) => p.id === id)?.nome ?? id;
   const ativos = gestores.filter((g) => g.status === 'ativo');
-  const semMfa = ativos.filter((g) => !g.mfaAtivo).length;
 
   const enviarConvite = async (e) => {
     e.preventDefault();
@@ -150,7 +149,6 @@ export default function Gestores() {
       titulo: 'Papel',
       render: (g) => <span className="font-medium text-ink">{nomePapel(g.papel)}</span>,
     },
-    { id: 'mfa', titulo: 'Segurança', render: (g) => <StatusBadge mapa={MFA} valor={String(g.mfaAtivo)} /> },
     {
       id: 'acesso',
       titulo: 'Último acesso',
@@ -222,12 +220,6 @@ export default function Gestores() {
               ? 'Nenhum convite pendente'
               : plural(gestores.length - ativos.length, 'convite pendente', 'convites pendentes')
           }
-        />
-        <StatCard
-          rotulo="Sem 2FA"
-          valor={semMfa}
-          detalhe={semMfa ? 'Peça que ativem a verificação em duas etapas' : 'Todos protegidos com 2FA'}
-          tomDetalhe={semMfa ? 'alerta' : 'sucesso'}
         />
       </StatGrid>
 

@@ -97,6 +97,11 @@ public final class Requisicao implements AutoCloseable {
         }
     }
 
+    /** Variável do caminho como texto (ex.: {@code {id}} = "INV-2026-10"). */
+    public String variavel(String nome) {
+        return variaveis.get(nome);
+    }
+
     /** Parâmetro da query sem espaços nas pontas; vazio vira {@code null}. */
     public String parametro(String nome) {
         String valor = parametros.get(nome);

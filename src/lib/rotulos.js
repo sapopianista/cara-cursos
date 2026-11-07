@@ -2,7 +2,7 @@
  * Vocabulário único da interface. A API envia enums (ex.: "em_andamento") e
  * as telas exibem sempre o mesmo texto para o mesmo conceito.
  */
-import { CheckCircle2, Clock, LoaderCircle, ShieldAlert, ShieldCheck } from 'lucide-react';
+import { CheckCircle2, Clock, LoaderCircle } from 'lucide-react';
 
 export const NIVEL_CURSO = {
   iniciante: 'Iniciante',
@@ -26,18 +26,13 @@ export const STATUS_CURSO = {
 
 export const STATUS_COLABORADOR = {
   ativo: { rotulo: 'Ativo', tom: 'sucesso' },
-  pendente: { rotulo: 'Convite pendente', tom: 'alerta' },
+  pendente: { rotulo: 'Aguardando 1º acesso', tom: 'alerta' },
   inativo: { rotulo: 'Inativo', tom: 'neutro' },
 };
 
 export const STATUS_GESTOR = {
   ativo: { rotulo: 'Ativo', tom: 'sucesso' },
   pendente: { rotulo: 'Convite pendente', tom: 'alerta' },
-};
-
-export const MFA = {
-  true: { rotulo: '2FA ativo', tom: 'sucesso', icone: ShieldCheck },
-  false: { rotulo: 'Sem 2FA', tom: 'alerta', icone: ShieldAlert },
 };
 
 export const STATUS_CHAMADO = {

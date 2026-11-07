@@ -42,16 +42,6 @@ const POLITICAS = [
       },
     ],
   },
-  {
-    grupo: 'Segurança',
-    itens: [
-      {
-        chave: 'exigir2FA',
-        titulo: 'Exigir verificação em duas etapas (2FA) para gestores',
-        descricao: 'Pede um código extra a cada acesso ao painel da empresa.',
-      },
-    ],
-  },
 ];
 
 /** Formulário com controle de alterações: "Salvar" só aparece ativo quando algo mudou. */

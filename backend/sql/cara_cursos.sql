@@ -21,7 +21,7 @@ USE cara_cursos;
 -- GRANT SELECT, INSERT, UPDATE, DELETE ON cara_cursos.* TO 'caracursos'@'localhost';
 
 SET FOREIGN_KEY_CHECKS = 0;
-DROP TABLE IF EXISTS chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
+DROP TABLE IF EXISTS faturas, contrato, relatorios, chamados, faq, auditoria, gestores, notificacoes, certificados, entregas, atividades, materiais,
   progresso_aulas, aulas, matriculas, nivel_cursos, niveis, trilha_cursos, trilhas,
   cursos, areas, categorias, sessoes, usuarios, cargos, departamentos, empresa;
 SET FOREIGN_KEY_CHECKS = 1;
@@ -34,6 +34,7 @@ CREATE TABLE empresa (
   nome_fantasia        VARCHAR(120)      NOT NULL,
   razao_social         VARCHAR(160)      NOT NULL,
   cnpj                 CHAR(18)          NOT NULL,  -- formatado: 00.000.000/0000-00
+  endereco             VARCHAR(200)      NOT NULL DEFAULT '',
   licencas_contratadas SMALLINT UNSIGNED NOT NULL,
   -- Configurações (tela Configurações do painel)
   email_notificacao    VARCHAR(160)      NOT NULL,
@@ -42,7 +43,6 @@ CREATE TABLE empresa (
   exigir_presenca_minima      BOOLEAN    NOT NULL DEFAULT TRUE,
   certificacao_automatica     BOOLEAN    NOT NULL DEFAULT TRUE,
   permitir_download_materiais BOOLEAN    NOT NULL DEFAULT TRUE,
-  exigir_2fa                  BOOLEAN    NOT NULL DEFAULT FALSE,
   CONSTRAINT pk_empresa PRIMARY KEY (id)
 ) ENGINE = InnoDB;
 
@@ -59,7 +59,10 @@ CREATE TABLE cargos (
 -- ---------------------------------------------------------------------
 -- usuarios
 -- senha: HASH (nunca texto puro), formato pbkdf2_sha256$<iterações>$<salt>$<hash>.
---        NULL enquanto o convite não foi aceito (status 'pendente').
+--        NULL = ainda sem senha (não consegue entrar até alguém definir uma).
+-- trocar_senha: TRUE quando a senha foi definida pelo RH (inicial ou redefinida);
+--        a pessoa precisa trocá-la antes de usar o sistema.
+-- status 'pendente' = cadastrado, mas ainda não fez o primeiro acesso.
 -- tipo_perfil: os mesmos papéis do frontend (AuthContext).
 -- ---------------------------------------------------------------------
 CREATE TABLE usuarios (
@@ -68,6 +71,7 @@ CREATE TABLE usuarios (
   nome                 VARCHAR(120)      NOT NULL,
   email                VARCHAR(160)      NOT NULL,
   senha                VARCHAR(255)      NULL,
+  trocar_senha         BOOLEAN           NOT NULL DEFAULT FALSE,
   tipo_perfil          ENUM('admin', 'rh', 'lider', 'financeiro', 'colaborador')
                        NOT NULL DEFAULT 'colaborador',
   cargo                VARCHAR(80)       NOT NULL,
@@ -108,7 +112,6 @@ CREATE TABLE sessoes (
 CREATE TABLE gestores (
   id_usuario   INT UNSIGNED NOT NULL,
   convidado_em DATETIME     NOT NULL,
-  mfa_ativo    BOOLEAN      NOT NULL DEFAULT FALSE,
   CONSTRAINT pk_gestores PRIMARY KEY (id_usuario),
   CONSTRAINT fk_gestores_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE
 ) ENGINE = InnoDB;
@@ -350,6 +353,56 @@ CREATE TABLE chamados (
   INDEX ix_chamados_escopo (escopo, atualizado_em)
 ) ENGINE = InnoDB;
 
+-- ---------------------------------------------------------------------
+-- Plano e faturamento. As licenças contratadas ficam em empresa.licencas_contratadas
+-- (é o que limita o cadastro de colaboradores); aqui ficam o contrato e as faturas.
+-- ---------------------------------------------------------------------
+CREATE TABLE contrato (
+  id                         INT UNSIGNED NOT NULL,
+  numero                     VARCHAR(20)  NOT NULL,
+  plano                      VARCHAR(60)  NOT NULL,
+  status                     ENUM('ativo', 'suspenso', 'encerrado') NOT NULL DEFAULT 'ativo',
+  inicio                     DATETIME     NOT NULL,
+  renovacao                  DATETIME     NOT NULL,
+  valor_licenca_centavos     INT UNSIGNED NOT NULL,
+  metodo_pagamento           VARCHAR(40)  NOT NULL,
+  email_nota_fiscal          VARCHAR(160) NOT NULL,
+  CONSTRAINT pk_contrato PRIMARY KEY (id)
+) ENGINE = InnoDB;
+
+-- status 'aberta' depois do vencimento é devolvido como 'vencida' pela API.
+CREATE TABLE faturas (
+  id                 VARCHAR(20)  NOT NULL,  -- ex.: INV-2026-10
+  competencia        DATETIME     NOT NULL,
+  licencas           SMALLINT UNSIGNED NOT NULL,
+  valor_centavos     INT UNSIGNED NOT NULL,
+  emitida_em         DATETIME     NOT NULL,
+  vencimento         DATETIME     NOT NULL,
+  status             ENUM('paga', 'aberta') NOT NULL DEFAULT 'aberta',
+  nota_fiscal_numero VARCHAR(20)  NOT NULL,
+  CONSTRAINT pk_faturas PRIMARY KEY (id),
+  INDEX ix_faturas_competencia (competencia)
+) ENGINE = InnoDB;
+
+-- ---------------------------------------------------------------------
+-- Relatórios gerados no painel. O arquivo fica guardado (é pequeno) para ser
+-- baixado de novo depois com os mesmos números do dia em que foi gerado.
+-- ---------------------------------------------------------------------
+CREATE TABLE relatorios (
+  id             INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  modelo         VARCHAR(30)  NOT NULL,
+  periodo        ENUM('7dias', '30dias', 'trimestre', 'ano') NOT NULL,
+  departamento   VARCHAR(80)  NULL,
+  id_solicitante INT UNSIGNED NULL,
+  solicitado_por VARCHAR(120) NOT NULL,
+  criado_em      DATETIME     NOT NULL,
+  nome_arquivo   VARCHAR(120) NOT NULL,
+  arquivo        MEDIUMBLOB   NOT NULL,
+  CONSTRAINT pk_relatorios PRIMARY KEY (id),
+  CONSTRAINT fk_relatorios_solicitante FOREIGN KEY (id_solicitante) REFERENCES usuarios (id) ON DELETE SET NULL,
+  INDEX ix_relatorios_criado_em (criado_em)
+) ENGINE = InnoDB;
+
 -- =====================================================================
 -- DADOS DE TESTE
 -- Gerados a partir dos dados de demonstração do frontend (src/services/mock/db.js),
@@ -357,10 +410,10 @@ CREATE TABLE chamados (
 -- Contas ativas usam a senha: demo1234
 -- =====================================================================
 
-INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, licencas_contratadas, email_notificacao,
-                     fuso_horario, dominios_autorizados, exigir_2fa) VALUES
-  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 30, 'educacao@oscorp.com',
-   'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com', TRUE);
+INSERT INTO empresa (id, nome_fantasia, razao_social, cnpj, endereco, licencas_contratadas, email_notificacao,
+                     fuso_horario, dominios_autorizados) VALUES
+  (1, 'Oscorp', 'Oscorp Brasil Ltda.', '11.222.333/0001-81', 'Av. Paulista, 1842, Bela Vista — São Paulo, SP', 30,
+   'educacao@oscorp.com', 'America/Sao_Paulo', 'oscorp.com, lab.oscorp.com');
 
 INSERT INTO departamentos (nome) VALUES
   ('Financeiro'),
@@ -1537,12 +1590,12 @@ INSERT INTO notificacoes (id_usuario, titulo, descricao, link, lida, criada_em) 
   (102, 'Chamado respondido', 'A equipe respondeu o chamado #4109.', '/suporte', TRUE, UTC_TIMESTAMP() - INTERVAL 2880 MINUTE);
 
 -- Rodrigo foi convidado depois do último acesso: aparece como convite pendente.
-INSERT INTO gestores (id_usuario, convidado_em, mfa_ativo) VALUES
-  (101, UTC_TIMESTAMP() - INTERVAL 288000 MINUTE, TRUE),
-  (103, UTC_TIMESTAMP() - INTERVAL 244800 MINUTE, TRUE),
-  (104, UTC_TIMESTAMP() - INTERVAL 201600 MINUTE, TRUE),
-  (111, UTC_TIMESTAMP() - INTERVAL 158400 MINUTE, FALSE),
-  (105, UTC_TIMESTAMP() - INTERVAL 100 MINUTE, FALSE);
+INSERT INTO gestores (id_usuario, convidado_em) VALUES
+  (101, UTC_TIMESTAMP() - INTERVAL 288000 MINUTE),
+  (103, UTC_TIMESTAMP() - INTERVAL 244800 MINUTE),
+  (104, UTC_TIMESTAMP() - INTERVAL 201600 MINUTE),
+  (111, UTC_TIMESTAMP() - INTERVAL 158400 MINUTE),
+  (105, UTC_TIMESTAMP() - INTERVAL 100 MINUTE);
 
 INSERT INTO auditoria (acao, descricao, id_autor, autor, criado_em) VALUES
   ('Permissão alterada', 'Beatriz Albuquerque definiu Juliana Mendonça como Líder de equipe.', 103, 'Beatriz Albuquerque', UTC_TIMESTAMP() - INTERVAL 360 MINUTE),
@@ -1556,11 +1609,27 @@ INSERT INTO faq (id, escopo, ordem, pergunta, resposta) VALUES
   (4, 'aluno', 4, 'O vídeo está travando. O que faço?', 'Reduza a qualidade no menu do player. Se continuar, abra um chamado informando o horário e o curso.'),
   (11, 'gestor', 1, 'Como gero o relatório de horas de treinamento?', 'Em Relatórios, escolha "Conclusão de cursos e trilhas", defina o período e clique em Gerar. O arquivo fica disponível no histórico.'),
   (12, 'gestor', 2, 'Como exporto a lista de colaboradores?', 'Em Colaboradores, aplique os filtros desejados e use "Exportar CSV". O arquivo respeita a busca e o status selecionados.'),
-  (13, 'gestor', 3, 'Como revogo o acesso de alguém desligado?', 'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.'),
-  (14, 'gestor', 4, 'Como exijo 2FA para gestores?', 'Em Configurações → Segurança, ative "Exigir autenticação em duas etapas" e salve.');
+  (13, 'gestor', 3, 'Como revogo o acesso de alguém desligado?', 'Em Colaboradores, abra o menu da pessoa e escolha "Desativar". O histórico de certificados é preservado. Se ela também for gestora, revogue o acesso em Gestores e permissões.');
 
 INSERT INTO chamados (id, id_usuario, escopo, assunto, titulo, id_curso, descricao, status, criado_em, atualizado_em) VALUES
   (3984, 101, 'aluno', 'Certificado', 'Validação de certificado de conclusão', 11, 'O QR code do certificado não abre a página de validação.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 31680 MINUTE, UTC_TIMESTAMP() - INTERVAL 28800 MINUTE),
   (4109, 101, 'aluno', 'Dúvida sobre o conteúdo', 'Exercício prático do módulo 2', 1, 'Não entendi o que o exercício pede no segundo item.', 'respondido', UTC_TIMESTAMP() - INTERVAL 4320 MINUTE, UTC_TIMESTAMP() - INTERVAL 1440 MINUTE),
   (8120, 103, 'gestor', 'Faturamento e licenças', 'Liberação de licenças para Tecnologia', NULL, 'Precisamos de 5 licenças a mais para a equipe de Tecnologia.', 'resolvido', UTC_TIMESTAMP() - INTERVAL 20160 MINUTE, UTC_TIMESTAMP() - INTERVAL 17280 MINUTE),
   (8492, 101, 'gestor', 'Integrações e API', 'Webhook de conclusão de curso', NULL, 'Queremos receber um webhook quando alguém concluir um curso.', 'em_analise', UTC_TIMESTAMP() - INTERVAL 180 MINUTE, UTC_TIMESTAMP() - INTERVAL 180 MINUTE);
+
+-- Datas "de calendário" (contrato e faturas) ficam ao meio-dia UTC: caem no mesmo dia em qualquer fuso do Brasil.
+-- Contrato anual que começou há 320 dias (renova em 45).
+INSERT INTO contrato (id, numero, plano, status, inicio, renovacao, valor_licenca_centavos, metodo_pagamento,
+                      email_nota_fiscal) VALUES
+  (1, 'OSC-2026-008', 'Enterprise anual', 'ativo', UTC_DATE() - INTERVAL 320 DAY + INTERVAL 12 HOUR,
+   UTC_DATE() + INTERVAL 45 DAY + INTERVAL 12 HOUR,
+   7400, 'Boleto bancário', 'nfe@oscorp.com');
+
+-- Últimos 4 meses: emitidas no dia 1, vencem no dia 15. A do mês atual está em aberto.
+INSERT INTO faturas (id, competencia, licencas, valor_centavos, emitida_em, vencimento, status, nota_fiscal_numero)
+SELECT CONCAT('INV-', DATE_FORMAT(m.inicio, '%Y-%m')), m.inicio, m.licencas, m.licencas * 7400, m.inicio,
+       m.inicio + INTERVAL 14 DAY, IF(m.n = 0, 'aberta', 'paga'), CONCAT('NFE-', 90420 - m.n * 37)
+FROM (
+  SELECT n, DATE_FORMAT(UTC_DATE() - INTERVAL n MONTH, '%Y-%m-01 12:00:00') AS inicio, IF(n >= 2, 25, 30) AS licencas
+  FROM (SELECT 0 AS n UNION ALL SELECT 1 UNION ALL SELECT 2 UNION ALL SELECT 3) meses
+) m;
