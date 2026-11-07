@@ -32,7 +32,7 @@ export const STATUS_COLABORADOR = {
 
 export const STATUS_GESTOR = {
   ativo: { rotulo: 'Ativo', tom: 'sucesso' },
-  pendente: { rotulo: 'Convite pendente', tom: 'alerta' },
+  pendente: { rotulo: 'Aguardando 1º acesso', tom: 'alerta' },
 };
 
 export const STATUS_CHAMADO = {

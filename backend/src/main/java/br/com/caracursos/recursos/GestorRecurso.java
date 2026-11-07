@@ -20,8 +20,8 @@ import br.com.caracursos.util.Relogio;
 /**
  * Painel da empresa: {@code /admin/gestores} e {@code /admin/auditoria}.
  *
- * <p>O convite ainda não envia e-mail (depende de SMTP; ver PLANO.md): o papel vale na
- * hora, e o gestor aparece como "pendente" até entrar no sistema.
+ * <p>Não há envio de e-mail: o papel vale na hora, e o gestor aparece como "pendente"
+ * até entrar no painel (quem convida avisa a pessoa).
  */
 public class GestorRecurso {
 

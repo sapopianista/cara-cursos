@@ -63,7 +63,7 @@ O backend **deve** aplicar as mesmas regras (o front só esconde o que não é p
 ```
 `identificador` é o e-mail corporativo (sem diferenciar maiúsculas). `lembrar: true` → sessão de 30 dias;
 senão, 12 horas. `422` com `campos` se faltar e-mail ou senha · `401` credenciais inválidas (mesma mensagem para
-e-mail inexistente, senha errada ou convite ainda não aceito) · `403` acesso desativado ·
+e-mail inexistente, senha errada ou conta sem senha definida) · `403` acesso desativado ·
 `429 MUITAS_TENTATIVAS` depois de 5 senhas erradas para o mesmo e-mail em 15 minutos (até a janela acabar).
 
 ### `GET /auth/me` → `Usuario`
@@ -276,8 +276,8 @@ Regras: sempre ao menos um `admin` ativo (`409 ULTIMO_ADMIN`); ninguém revoga o
 toda alteração gera auditoria.
 
 No backend Java, `id` = `colaboradorId` (o papel fica em `usuarios.tipo_perfil`). O papel vale assim que o convite é
-feito; o gestor fica `pendente` até entrar no sistema depois do convite, e reenviar o convite de quem já entrou dá
-`409 CONVITE_ACEITO`. O e-mail do convite ainda não é enviado (depende de SMTP).
+feito; o gestor fica `pendente` até entrar no sistema depois do convite, e renovar o convite (`POST .../convite`) de
+quem já entrou dá `409 CONVITE_ACEITO`. Não há envio de e-mail: quem convida avisa a pessoa.
 
 ### Relatórios
 - `GET /admin/relatorios` → `{ modelos: { id, titulo, descricao, formato: 'pdf'|'csv' }[], departamentos: string[], historico: Relatorio[] }`

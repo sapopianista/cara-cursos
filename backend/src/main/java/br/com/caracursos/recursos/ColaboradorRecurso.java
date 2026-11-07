@@ -34,7 +34,7 @@ public class ColaboradorRecurso {
     private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
     private static final List<Integer> NIVEIS = List.of(1, 2, 3, 4);
     private static final Map<String, String> STATUS_CSV = Map.of(
-            "ativo", "Ativo", "pendente", "Convite pendente", "inativo", "Inativo");
+            "ativo", "Ativo", "pendente", "Aguardando 1º acesso", "inativo", "Inativo");
     private static final DateTimeFormatter DATA_HORA_CSV =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(Relogio.FUSO_EMPRESA);
 

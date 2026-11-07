@@ -97,7 +97,7 @@ export default function Gestores() {
     });
     if (!novo) return;
     setConvite(null);
-    toast.sucesso(`Convite enviado para ${novo.email}.`);
+    toast.sucesso(`${novo.nome} agora é ${nomePapel(novo.papel)}. Avise a pessoa para entrar no painel.`);
     atualizarTudo();
   };
 
@@ -120,7 +120,7 @@ export default function Gestores() {
 
   const reenviar = async (g) => {
     if (await acaoReenviar.executar(g.id)) {
-      toast.sucesso(`Convite reenviado para ${g.email}.`);
+      toast.sucesso(`Convite de ${g.nome} renovado. Avise a pessoa para entrar no painel.`);
       auditoria.recarregar();
     }
   };
@@ -155,7 +155,7 @@ export default function Gestores() {
       render: (g) => (
         <span className="text-muted">
           {g.status === 'pendente'
-            ? `Convidado ${relativo(g.convidadoEm)}`
+            ? `Convidado ${relativo(g.convidadoEm)}, ainda não entrou`
             : g.ultimoAcesso
               ? relativo(g.ultimoAcesso)
               : '—'}
@@ -179,7 +179,7 @@ export default function Gestores() {
                 onClick: () => setEdicao({ gestor: g, papel: g.papel }),
               },
               {
-                rotulo: 'Reenviar convite',
+                rotulo: 'Renovar convite',
                 icone: MailPlus,
                 oculto: g.status !== 'pendente',
                 onClick: () => reenviar(g),
@@ -217,8 +217,8 @@ export default function Gestores() {
           valor={ativos.length}
           detalhe={
             gestores.length === ativos.length
-              ? 'Nenhum convite pendente'
-              : plural(gestores.length - ativos.length, 'convite pendente', 'convites pendentes')
+              ? 'Todos já entraram no painel'
+              : plural(gestores.length - ativos.length, 'aguardando 1º acesso', 'aguardando 1º acesso')
           }
         />
       </StatGrid>
@@ -253,14 +253,14 @@ export default function Gestores() {
         aberto={Boolean(convite)}
         onFechar={() => !acaoConvidar.executando && setConvite(null)}
         titulo="Convidar gestor"
-        descricao="A pessoa precisa já ser colaboradora. Ela recebe um e-mail para aceitar o novo acesso."
+        descricao="A pessoa precisa já ser colaboradora. O novo papel vale na hora; avise-a para entrar no painel."
         rodape={
           <>
             <Button variante="ghost" onClick={() => setConvite(null)}>
               Cancelar
             </Button>
             <Button type="submit" form="form-convite" carregando={acaoConvidar.executando}>
-              Enviar convite
+              Convidar
             </Button>
           </>
         }
