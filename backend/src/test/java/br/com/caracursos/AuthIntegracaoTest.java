@@ -43,7 +43,7 @@ class AuthIntegracaoTest {
         JsonObject emailInexistente = login(401, "ninguem@oscorp.com", "demo1234");
         assertEquals(senhaErrada.get("mensagem"), emailInexistente.get("mensagem"));
         assertEquals("CREDENCIAIS_INVALIDAS", senhaErrada.get("codigo").getAsString());
-        // Convite pendente ainda não tem senha.
+        // Conta sem senha definida não entra.
         login(401, "maria.santos@oscorp.com", "demo1234");
     }
 

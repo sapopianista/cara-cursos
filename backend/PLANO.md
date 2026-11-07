@@ -45,7 +45,7 @@ Cada etapa termina com algo verificável; só avance quando o critério de "pron
 - `POST /auth/login`, `GET /auth/me`, `POST /auth/logout`.
 - "Manter conectado" = sessão de 30 dias; sem ele, 12 horas.
 - Permissões por `tipo_perfil` (`Permissao`), iguais ao `PERMISSOES` do frontend; 403 quando faltar.
-- Conta inativa → 403; convite pendente (sem senha) → 401.
+- Conta inativa → 403; conta sem senha definida → 401.
 
 ## Etapa 4 — Endpoints ✅
 

@@ -30,7 +30,7 @@ public class Usuario {
         }
     }
 
-    /** Situação do acesso: {@code pendente} = convite ainda não aceito. */
+    /** Situação do acesso: {@code pendente} = cadastrado, mas ainda não fez o primeiro acesso. */
     public enum Status {
         ATIVO, PENDENTE, INATIVO;
 

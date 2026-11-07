@@ -646,7 +646,7 @@ export function getProgressoColaborador(id) {
 /** Na API real: GET /admin/colaboradores/exportar (text/csv). Aqui geramos o mesmo CSV no navegador. */
 export async function exportarColaboradores(filtros) {
   const linhas = filtrarColaboradores(filtros);
-  const STATUS = { ativo: 'Ativo', pendente: 'Convite pendente', inativo: 'Inativo' };
+  const STATUS = { ativo: 'Ativo', pendente: 'Aguardando 1º acesso', inativo: 'Inativo' };
   const blob = gerarCsv(linhas, [
     { titulo: 'Matrícula', valor: (c) => c.matricula },
     { titulo: 'Nome', valor: (c) => c.nome },
