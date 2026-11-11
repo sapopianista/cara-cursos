@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { TriangleAlert, X } from 'lucide-react';
 import { cn } from '../../lib/cn';
 import { usePresenca } from '../../hooks/utilitarios';
@@ -101,13 +102,13 @@ export default function Modal({
 
   if (!montado) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto p-4 sm:p-6">
       <div
         onClick={onFechar}
         aria-hidden
         className={cn(
-          'fixed inset-0 bg-black/60 backdrop-blur-sm',
+          'fixed inset-0 bg-black/75 backdrop-blur-sm',
           saindo ? 'animate-fade-out' : 'animate-fade-in',
         )}
       />
@@ -119,13 +120,13 @@ export default function Modal({
         aria-describedby={descricao ? descricaoId : undefined}
         tabIndex={-1}
         className={cn(
-          'relative z-10 flex max-h-[92vh] w-full flex-col rounded-t-2xl border border-line bg-surface text-ink shadow-popover focus:outline-none sm:rounded-2xl',
+          'relative z-10 my-auto flex max-h-[calc(100vh-2rem)] sm:max-h-[calc(100vh-3.5rem)] w-full flex-col rounded-2xl border border-line bg-surface text-ink shadow-2xl focus:outline-none',
           LARGURAS[largura],
           saindo ? 'animate-pop-out' : 'animate-pop-in',
           className,
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-line px-6 pb-4 pt-5">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-6 pb-4 pt-5">
           <div>
             <h2 id={tituloId} className="text-lg font-semibold text-ink">
               {titulo}
@@ -148,15 +149,16 @@ export default function Modal({
           </Button>
         </div>
 
-        <div className="overflow-y-auto px-6 py-5">{children}</div>
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
 
         {rodape && (
-          <div className="flex flex-col-reverse gap-2 border-t border-line px-6 py-4 sm:flex-row sm:justify-end">
+          <div className="flex shrink-0 flex-col-reverse gap-2 border-t border-line bg-surface px-6 py-4 sm:flex-row sm:justify-end">
             {rodape}
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

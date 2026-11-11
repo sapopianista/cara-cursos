@@ -5,8 +5,7 @@ e o andamento do projeto em [`PLANO.md`](PLANO.md).
 
 ## Pré-requisitos
 
-- **JDK 21** ou mais novo (`java -version` deve mostrar 21+). O código é compilado para Java 21, então não use
-  recursos de versões posteriores. O Maven não precisa ser instalado: use `mvnw`, que usa o JDK do `JAVA_HOME`.
+- **JDK 21 ou JDK 25** (`java -version` deve mostrar 21+ ou 25+). O código é compilado com `<maven.compiler.release>21</maven.compiler.release>`, garantindo compatibilidade tanto ao rodar na versão mínima LTS (Java 21) quanto em versões mais recentes como o Java 25. O Maven não precisa ser instalado: use `mvnw`, que usa o JDK do `JAVA_HOME`.
 - **MySQL 8.0.19+**.
 
 ## 1. Criar a base de dados
@@ -59,11 +58,9 @@ para a porta 8080. Todas as telas passam a usar a API.
 Os testes de integração exercitam a API inteira (rotas, login, permissões, JSON e SQL) numa base
 **separada**, `cara_cursos_teste`, recriada a cada classe de teste. A base `cara_cursos` nunca é tocada.
 
-### Erro "class file version 69.0 … only recognizes up to 65.0"
+### Compatibilidade entre versões (JDK 21 e JDK 25)
 
-Alguma classe em `target/` foi compilada por um JDK mais novo (ex.: a extensão Java do VS Code usando o JDK 25).
-Recompile tudo com o JDK 21: `.\mvnw.cmd clean test` (ou `clean package`). Ao levar o projeto para outra
-máquina, não copie a pasta `target/`.
+O Maven está configurado com `--release 21`, o que produz bytecode compatível com Java 21 (class file version 65.0) mesmo se compilado no JDK 25. Se houver resquícios de compilação externa com versões divergentes em `target/`, basta limpar e recompilar: `.\mvnw.cmd clean test` (ou `clean package`). Ao levar o projeto para outra máquina, não copie a pasta `target/`.
 
 ## Produção (Tomcat 10.1+)
 
