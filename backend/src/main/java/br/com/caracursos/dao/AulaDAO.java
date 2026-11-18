@@ -8,15 +8,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.com.caracursos.model.Aula;
 import br.com.caracursos.model.CursoResumo;
 
 /** Aulas de um curso e o progresso do aluno em cada uma (tabelas {@code aulas} e {@code progresso_aulas}). */
 public class AulaDAO {
-
-    /** Formato {@code Aula} do contrato. {@code status}: concluida | em_andamento | pendente. */
-    public record Aula(int id, int ordem, String titulo, String tipo, int duracaoSegundos, int posicaoSegundos,
-                       String status, String videoUrl, String posterUrl, String legendaUrl) {
-    }
 
     /** Aula em andamento mais recente do aluno ("Continuar de onde parei"). */
     public record Continuacao(CursoResumo curso, Aula aula, String tema, String imagemUrl) {
@@ -80,15 +76,25 @@ public class AulaDAO {
 
     /** Porcentagem (0–100) de aulas do curso concluídas pelo aluno. */
     public int progressoDoCurso(int idUsuario, int idCurso) throws SQLException {
+        return percentualConcluido(idUsuario, idCurso, false, 0);
+    }
+
+    /** Porcentagem (0–100) de aulas regulares (exceto avaliação) concluídas pelo aluno no curso. */
+    public int presencaNasAulas(int idUsuario, int idCurso) throws SQLException {
+        return percentualConcluido(idUsuario, idCurso, true, 100);
+    }
+
+    private int percentualConcluido(int idUsuario, int idCurso, boolean somenteRegulares, int vazio)
+            throws SQLException {
         String sql = "SELECT COUNT(*) AS total, COALESCE(SUM(p.status = 'concluida'), 0) AS concluidas "
                 + "FROM aulas a LEFT JOIN progresso_aulas p ON p.id_aula = a.id AND p.id_usuario = ? "
-                + "WHERE a.id_curso = ?";
+                + "WHERE a.id_curso = ?" + (somenteRegulares ? " AND a.tipo <> 'avaliacao'" : "");
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {
             Jdbc.preencher(ps, idUsuario, idCurso);
             try (ResultSet rs = ps.executeQuery()) {
                 rs.next();
                 int total = rs.getInt("total");
-                return total == 0 ? 0 : (int) Math.round(rs.getInt("concluidas") * 100.0 / total);
+                return total == 0 ? vazio : (int) Math.round(rs.getInt("concluidas") * 100.0 / total);
             }
         }
     }

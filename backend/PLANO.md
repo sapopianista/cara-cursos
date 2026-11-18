@@ -85,7 +85,7 @@ funciona com `VITE_USAR_MOCK=false`.
   (API inteira contra MySQL, numa base separada `cara_cursos_teste`, recriada a cada classe).
 - [x] Logs com `java.util.logging`; senhas e tokens nunca são registrados.
 - [x] `README.md` do backend.
-- [ ] Pool de conexões (JNDI do Tomcat / `context.xml`) em vez de `DriverManager` por requisição.
+- [x] Pool de conexões (JNDI do Tomcat / `context.xml` + pool embarcado) em vez de `DriverManager` por requisição.
 - [x] Limite de tentativas de login (`seguranca/LimiteLogin`): 5 falhas por e-mail em 15 min → `429`. Fica em
   memória (uma instância da API). Como é por e-mail, alguém pode travar a conta de outra pessoa por 15 min;
   um limite por IP (atrás de proxy, via `X-Forwarded-For`) seria o complemento.

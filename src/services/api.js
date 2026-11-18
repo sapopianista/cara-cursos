@@ -60,11 +60,12 @@ export const getRecomendacoes = endpoint('aluno', mock.getRecomendacoes, () =>
 );
 
 /** GET /certificados/{id}/arquivo (PDF) */
-export const baixarCertificado = (certificado) =>
+export const baixarCertificado = endpoint('aluno', mock.baixarCertificado, (certificado) =>
   baixarArquivo(
     certificado.url ?? `/certificados/${certificado.id}/arquivo`,
     `certificado-${certificado.codigo}.pdf`,
-  );
+  ),
+);
 
 // ---- Catálogo -----------------------------------------------------------
 
@@ -117,8 +118,10 @@ export const entregarAtividade = endpoint('sala', mock.entregarAtividade, (id, c
   http.post(`/atividades/${id}/entregas`, corpo),
 );
 
-/** Download de material de apoio (URL vem da API). */
-export const baixarMaterial = (material) => baixarArquivo(material.url, material.nome);
+/** GET /materiais/{id}/arquivo */
+export const baixarMaterial = endpoint('sala', mock.baixarMaterial, (material) =>
+  baixarArquivo(material.url ?? `/materiais/${material.id}/arquivo`, material.nome),
+);
 
 // ---- Notificações -------------------------------------------------------
 
@@ -244,8 +247,9 @@ export const gerarRelatorio = endpoint('relatorios', mock.gerarRelatorio, (dados
 );
 
 /** GET /admin/relatorios/{id}/arquivo */
-export const baixarRelatorio = (relatorio) =>
-  baixarArquivo(relatorio.url ?? `/admin/relatorios/${relatorio.id}/arquivo`, `relatorio-${relatorio.id}`);
+export const baixarRelatorio = endpoint('relatorios', mock.baixarRelatorio, (relatorio) =>
+  baixarArquivo(relatorio.url ?? `/admin/relatorios/${relatorio.id}/arquivo`, `relatorio-${relatorio.id}`),
+);
 
 // ---- Admin: plano e faturamento -----------------------------------------
 
@@ -260,8 +264,9 @@ export const contratarLicencas = endpoint('faturamento', mock.contratarLicencas,
 );
 
 /** Nota fiscal (URL vem da API). */
-export const baixarNotaFiscal = (fatura) =>
-  baixarArquivo(fatura.notaFiscal.url, `${fatura.notaFiscal.numero}.pdf`);
+export const baixarNotaFiscal = endpoint('faturamento', mock.baixarNotaFiscal, (fatura) =>
+  baixarArquivo(fatura.notaFiscal.url, `${fatura.notaFiscal.numero}.pdf`),
+);
 
 // ---- Admin: configurações -----------------------------------------------
 

@@ -58,7 +58,7 @@ public class UsuarioDAO {
                 u.setId(chaves.getInt(1));
             }
         }
-        u.setMatricula(String.format("COL-%04d", u.getId()));
+        u.setMatricula(Usuario.formatarMatricula(u.getId()));
         u.setCriadoEm(agora);
         try (PreparedStatement ps = conexao.prepareStatement("UPDATE usuarios SET matricula = ? WHERE id = ?")) {
             Jdbc.preencher(ps, u.getMatricula(), u.getId());
@@ -97,23 +97,6 @@ public class UsuarioDAO {
              ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM usuarios WHERE status <> 'inativo'")) {
             rs.next();
             return rs.getInt(1);
-        }
-    }
-
-    public record Empresa(int id, String nome) {
-    }
-
-    public Empresa empresa() throws SQLException {
-        try (Statement st = conexao.createStatement();
-             ResultSet rs = st.executeQuery("SELECT id, nome_fantasia FROM empresa WHERE id = 1")) {
-            return rs.next() ? new Empresa(rs.getInt(1), rs.getString(2)) : null;
-        }
-    }
-
-    public int licencasContratadas() throws SQLException {
-        try (Statement st = conexao.createStatement();
-             ResultSet rs = st.executeQuery("SELECT licencas_contratadas FROM empresa WHERE id = 1")) {
-            return rs.next() ? rs.getInt(1) : 0;
         }
     }
 

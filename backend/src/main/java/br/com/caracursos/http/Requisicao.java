@@ -49,15 +49,29 @@ public final class Requisicao implements AutoCloseable {
     public <T> T transacao(Transacao<T> bloco) throws SQLException {
         Connection c = conexao();
         c.setAutoCommit(false);
+        Throwable falha = null;
         try {
             T resultado = bloco.executar(c);
             c.commit();
             return resultado;
-        } catch (SQLException | RuntimeException e) {
-            c.rollback();
-            throw e;
+        } catch (Throwable e) {
+            falha = e;
+            try {
+                c.rollback();
+            } catch (SQLException sup) {
+                e.addSuppressed(sup);
+            }
+            if (e instanceof SQLException sqlEx) throw sqlEx;
+            if (e instanceof RuntimeException rtEx) throw rtEx;
+            if (e instanceof Error err) throw err;
+            throw new SQLException(e);
         } finally {
-            c.setAutoCommit(true);
+            try {
+                c.setAutoCommit(true);
+            } catch (SQLException sup) {
+                if (falha != null) falha.addSuppressed(sup);
+                else throw sup;
+            }
         }
     }
 

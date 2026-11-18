@@ -5,6 +5,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.ZoneId;
+import java.util.List;
+
+import br.com.caracursos.util.Email;
+import br.com.caracursos.util.Relogio;
 
 /** Dados e configurações da empresa (tabela {@code empresa}, linha única id = 1). */
 public class EmpresaDAO {
@@ -17,6 +22,10 @@ public class EmpresaDAO {
                             boolean permitirDownloadMateriais) {
     }
 
+    /** Resumo da empresa para identificação na sessão e certificados. */
+    public record Resumo(int id, String nome) {
+    }
+
     /** Formato de {@code GET/PUT /admin/configuracoes}. */
     public record Configuracoes(Organizacao organizacao, Politicas politicas) {
     }
@@ -25,6 +34,52 @@ public class EmpresaDAO {
 
     public EmpresaDAO(Connection conexao) {
         this.conexao = conexao;
+    }
+
+    public Resumo resumo() throws SQLException {
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT id, nome_fantasia FROM empresa WHERE id = 1")) {
+            return rs.next() ? new Resumo(rs.getInt(1), rs.getString(2)) : null;
+        }
+    }
+
+    public int licencasContratadas() throws SQLException {
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT licencas_contratadas FROM empresa WHERE id = 1")) {
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+
+    /** Lê o total de licenças contratadas travando a linha da empresa até o fim da transação. */
+    public int licencasContratadasTravando() throws SQLException {
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT licencas_contratadas FROM empresa WHERE id = 1 FOR UPDATE")) {
+            return rs.next() ? rs.getInt(1) : 0;
+        }
+    }
+
+    public ZoneId fusoHorario() throws SQLException {
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT fuso_horario FROM empresa WHERE id = 1")) {
+            return Relogio.fuso(rs.next() ? rs.getString(1) : null);
+        }
+    }
+
+    public List<String> dominiosAutorizados() throws SQLException {
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT dominios_autorizados FROM empresa WHERE id = 1")) {
+            return rs.next() ? Email.dominios(rs.getString(1)) : List.of();
+        }
+    }
+
+    public Politicas politicas() throws SQLException {
+        String sql = "SELECT exigir_presenca_minima, certificacao_automatica, permitir_download_materiais "
+                + "FROM empresa WHERE id = 1";
+        try (Statement st = conexao.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            return rs.next()
+                    ? new Politicas(rs.getBoolean(1), rs.getBoolean(2), rs.getBoolean(3))
+                    : new Politicas(true, true, true);
+        }
     }
 
     public Configuracoes configuracoes() throws SQLException {

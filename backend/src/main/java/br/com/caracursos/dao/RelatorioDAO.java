@@ -114,14 +114,15 @@ public class RelatorioDAO {
     // ---- números de cada modelo -----------------------------------------
 
     public List<Engajamento> engajamento(Instant desde, String departamento) throws SQLException {
-        List<Object> valores = new ArrayList<>(List.of(desde, desde, desde));
+        List<Object> valores = new ArrayList<>(List.of(desde, desde));
         String sql = "SELECT u.matricula, u.nome, u.departamento, u.ultimo_acesso, "
-                + "(SELECT COUNT(*) FROM sessoes s WHERE s.id_usuario = u.id AND s.criada_em >= ?) AS acessos, "
-                + "(SELECT COUNT(DISTINCT DATE(s.criada_em)) FROM sessoes s "
-                + "  WHERE s.id_usuario = u.id AND s.criada_em >= ?) AS dias, "
-                + "(SELECT COUNT(*) FROM progresso_aulas pa WHERE pa.id_usuario = u.id AND pa.status = 'concluida' "
-                + "  AND pa.concluida_em >= ?) AS aulas "
-                + "FROM usuarios u WHERE" + ATIVOS + filtroDepartamento(departamento, valores)
+                + "COALESCE(s.acessos, 0) AS acessos, COALESCE(s.dias, 0) AS dias, COALESCE(pa.aulas, 0) AS aulas "
+                + "FROM usuarios u "
+                + "LEFT JOIN (SELECT id_usuario, COUNT(*) AS acessos, COUNT(DISTINCT DATE(criada_em)) AS dias "
+                + "  FROM sessoes WHERE criada_em >= ? GROUP BY id_usuario) s ON s.id_usuario = u.id "
+                + "LEFT JOIN (SELECT id_usuario, COUNT(*) AS aulas FROM progresso_aulas "
+                + "  WHERE status = 'concluida' AND concluida_em >= ? GROUP BY id_usuario) pa ON pa.id_usuario = u.id "
+                + "WHERE" + ATIVOS + filtroDepartamento(departamento, valores)
                 + "ORDER BY acessos DESC, u.nome";
         List<Engajamento> lista = new ArrayList<>();
         try (PreparedStatement ps = preparar(sql, valores); ResultSet rs = ps.executeQuery()) {
@@ -252,9 +253,16 @@ public class RelatorioDAO {
         try {
             Jdbc.preencher(ps, valores.toArray());
             return ps;
-        } catch (SQLException e) {
-            ps.close();
-            throw e;
+        } catch (Throwable e) {
+            try {
+                ps.close();
+            } catch (SQLException sup) {
+                e.addSuppressed(sup);
+            }
+            if (e instanceof SQLException sqlEx) throw sqlEx;
+            if (e instanceof RuntimeException rtEx) throw rtEx;
+            if (e instanceof Error err) throw err;
+            throw new SQLException(e);
         }
     }
 }

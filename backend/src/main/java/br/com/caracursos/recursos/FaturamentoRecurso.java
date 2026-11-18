@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.text.NumberFormat;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -11,6 +12,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import br.com.caracursos.dao.AuditoriaDAO;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.FaturamentoDAO;
 import br.com.caracursos.dao.FaturamentoDAO.Contrato;
 import br.com.caracursos.dao.FaturamentoDAO.DadosFiscais;
@@ -62,6 +64,7 @@ public class FaturamentoRecurso {
         Contrato contrato = dao.contrato();
         if (contrato == null) throw ApiException.naoEncontrado("A empresa ainda não tem contrato cadastrado.");
         int emUso = new UsuarioDAO(req.conexao()).contarLicencasEmUso();
+        ZoneId fuso = new EmpresaDAO(req.conexao()).fusoHorario();
 
         List<Map<String, Object>> faturas = dao.faturas().stream().map(f -> {
             Map<String, Object> json = new LinkedHashMap<>();
@@ -69,6 +72,7 @@ public class FaturamentoRecurso {
             json.put("competencia", f.competencia());
             json.put("licencas", f.licencas());
             json.put("emitidaEm", f.emitidaEm());
+            json.put("vencimento", f.vencimento());
             json.put("valorCentavos", f.valorCentavos());
             json.put("status", f.status());
             json.put("notaFiscal", Map.of("numero", f.notaFiscal(), "url", urlNota(f)));
@@ -78,7 +82,7 @@ public class FaturamentoRecurso {
         Map<String, Object> json = new LinkedHashMap<>();
         json.put("contrato", contrato);
         json.put("licencas", Map.of("contratadas", contrato.licencasContratadas(), "emUso", emUso));
-        json.put("proximaFatura", Map.of("vencimento", proximoVencimento(),
+        json.put("proximaFatura", Map.of("vencimento", proximoVencimento(fuso),
                 "valorCentavos", contrato.licencasContratadas() * contrato.valorLicencaMensalCentavos()));
         json.put("dadosFiscais", dao.dadosFiscais());
         json.put("faturas", faturas);
@@ -86,11 +90,11 @@ public class FaturamentoRecurso {
     }
 
     /** Próximo dia 15 depois de hoje (no fuso da empresa), à meia-noite. */
-    private static Instant proximoVencimento() {
-        LocalDate hoje = LocalDate.now(Relogio.FUSO_EMPRESA);
+    private static Instant proximoVencimento(ZoneId fuso) {
+        LocalDate hoje = LocalDate.now(fuso);
         LocalDate vencimento = hoje.withDayOfMonth(DIA_VENCIMENTO);
         if (!vencimento.isAfter(hoje)) vencimento = vencimento.plusMonths(1);
-        return vencimento.atStartOfDay(Relogio.FUSO_EMPRESA).toInstant();
+        return vencimento.atStartOfDay(fuso).toInstant();
     }
 
     private Object contratarLicencas(Requisicao req) throws SQLException {
@@ -119,6 +123,9 @@ public class FaturamentoRecurso {
         if (f == null) throw ApiException.naoEncontrado("Fatura não encontrada.");
         DadosFiscais fiscais = dao.dadosFiscais();
         Contrato contrato = dao.contrato();
+        ZoneId fuso = new EmpresaDAO(req.conexao()).fusoHorario();
+        DateTimeFormatter data = DATA.withZone(fuso);
+        DateTimeFormatter mes = MES.withZone(fuso);
         NumberFormat moeda = NumberFormat.getCurrencyInstance(PT_BR);
 
         String subtitulo = fiscais.razaoSocial() + " · CNPJ " + fiscais.cnpj() + " · Contrato " + contrato.numero()
@@ -129,10 +136,10 @@ public class FaturamentoRecurso {
             default -> "Em aberto";
         };
         List<List<String>> linhas = List.of(
-                List.of("Licenças " + contrato.plano(), MES.format(f.competencia()), String.valueOf(f.licencas()),
+                List.of("Licenças " + contrato.plano(), mes.format(f.competencia()), String.valueOf(f.licencas()),
                         moeda.format(f.valorCentavos() / 100.0 / Math.max(1, f.licencas())),
                         moeda.format(f.valorCentavos() / 100.0)),
-                List.of("Emitida em " + DATA.format(f.emitidaEm()) + " · Vencimento " + DATA.format(f.vencimento())
+                List.of("Emitida em " + data.format(f.emitidaEm()) + " · Vencimento " + data.format(f.vencimento())
                         + " · " + status, "", "", "", ""),
                 List.of("Referência da nota fiscal: " + f.notaFiscal() + " · " + contrato.metodoPagamento(),
                         "", "", "", ""));

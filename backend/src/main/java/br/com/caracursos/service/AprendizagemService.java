@@ -1,4 +1,4 @@
-package br.com.caracursos.recursos;
+package br.com.caracursos.service;
 
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -8,30 +8,43 @@ import java.util.Map;
 import br.com.caracursos.dao.AulaDAO;
 import br.com.caracursos.dao.CertificadoDAO;
 import br.com.caracursos.dao.CursoDAO;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.MatriculaDAO;
 import br.com.caracursos.dao.NotificacaoDAO;
 import br.com.caracursos.dao.TrilhaDAO;
+import br.com.caracursos.http.ApiException;
+import br.com.caracursos.model.Aula;
 import br.com.caracursos.model.CursoResumo;
 
 /**
  * Regras de progresso do aluno. Chamar sempre dentro de uma transação:
  * concluir uma aula recalcula o curso, e concluir o curso pode emitir certificados.
  */
-final class Aprendizagem {
+public final class AprendizagemService {
 
-    private Aprendizagem() {
+    private static final int PRESENCA_MINIMA_AVALIACAO = 80;
+
+    private AprendizagemService() {
     }
 
     /** Conclui a aula e devolve o novo progresso do curso (0–100). */
-    static int concluirAula(Connection c, int idUsuario, int idCurso, AulaDAO.Aula aula, Instant agora)
+    public static int concluirAula(Connection c, int idUsuario, int idCurso, Aula aula, Instant agora)
             throws SQLException {
-        MatriculaDAO matriculas = new MatriculaDAO(c);
+        EmpresaDAO.Politicas politicas = new EmpresaDAO(c).politicas();
         AulaDAO aulas = new AulaDAO(c);
+        if ("avaliacao".equals(aula.tipo()) && politicas.exigirPresencaMinima()
+                && aulas.presencaNasAulas(idUsuario, idCurso) < PRESENCA_MINIMA_AVALIACAO) {
+            throw ApiException.conflito("PRESENCA_MINIMA",
+                    "Conclua pelo menos 80% das aulas antes de realizar a avaliação.");
+        }
+        MatriculaDAO matriculas = new MatriculaDAO(c);
         matriculas.garantir(idUsuario, idCurso, agora);
         aulas.concluir(idUsuario, aula.id(), aula.duracaoSegundos(), agora);
         int progresso = aulas.progressoDoCurso(idUsuario, idCurso);
         matriculas.atualizarProgresso(idUsuario, idCurso, progresso, agora);
-        if (progresso >= 100) emitirCertificados(c, idUsuario, idCurso, agora);
+        if (progresso >= 100 && politicas.certificacaoAutomatica()) {
+            emitirCertificados(c, idUsuario, idCurso, agora);
+        }
         return progresso;
     }
 

@@ -132,6 +132,38 @@ describe('colaboradores (RH)', () => {
     expect(linhas.length).toBeGreaterThan(0);
     expect(within(tabela).queryByText('Ativo')).not.toBeInTheDocument();
   });
+
+  it('impede domínio de e-mail não autorizado pela empresa', async () => {
+    const { usuario } = renderizarApp('/admin/colaboradores', { token: TOKEN_ADMIN });
+    await usuario.click(await screen.findByRole('button', { name: 'Adicionar colaborador' }));
+    const d = within(await screen.findByRole('dialog'));
+    await usuario.type(d.getByLabelText(/Nome completo/), 'Carlos Externo');
+    await usuario.type(d.getByLabelText(/E-mail corporativo/), 'carlos@gmail.com');
+    await usuario.selectOptions(d.getByLabelText(/^Cargo/), 'Analista de Dados');
+    await usuario.selectOptions(d.getByLabelText(/^Departamento/), 'Tecnologia');
+    await usuario.type(d.getByLabelText(/Senha provisória/), 'provisoria123');
+    await usuario.click(screen.getByRole('button', { name: 'Adicionar' }));
+    expect(await d.findByText('Use um domínio autorizado: oscorp.com, lab.oscorp.com.')).toBeInTheDocument();
+  });
+
+  it('filtra por departamento', async () => {
+    const { usuario } = renderizarApp('/admin/colaboradores', { token: TOKEN_ADMIN });
+    await usuario.selectOptions(await screen.findByLabelText(/Filtrar por departamento/), 'Tecnologia');
+    const tabela = screen.getByRole('table', { name: 'Lista de colaboradores' });
+    expect(await within(tabela).findByText('Bruno Teixeira')).toBeInTheDocument();
+    expect(within(tabela).queryByText('Tiago Vieira')).not.toBeInTheDocument();
+  });
+});
+
+describe('sala de aula', () => {
+  it('exibe avaliação bloqueada por presença mínima e disponibiliza material de apoio', async () => {
+    const { container } = renderizarApp('/cursos/1/aulas/107', { token: TOKEN_COLABORADOR });
+    expect(await screen.findByRole('heading', { name: 'Avaliação do módulo' })).toBeInTheDocument();
+    expect(screen.getByText('Avaliação bloqueada pela política de presença mínima')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Marcar como concluída' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Baixar Guia de comunicação assertiva.pdf' })).toBeEnabled();
+    expect(await violacoesA11y(container)).toEqual([]);
+  });
 });
 
 describe('acessibilidade (axe)', () => {

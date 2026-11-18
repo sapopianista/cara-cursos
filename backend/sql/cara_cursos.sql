@@ -86,7 +86,9 @@ CREATE TABLE usuarios (
   CONSTRAINT pk_usuarios PRIMARY KEY (id),
   CONSTRAINT uk_usuarios_email UNIQUE (email),
   CONSTRAINT uk_usuarios_matricula UNIQUE (matricula),
-  CONSTRAINT ck_usuarios_nivel CHECK (nivel BETWEEN 1 AND 4)
+  CONSTRAINT ck_usuarios_nivel CHECK (nivel BETWEEN 1 AND 4),
+  INDEX ix_usuarios_status_departamento (status, departamento),
+  INDEX ix_usuarios_status_acesso (status, ultimo_acesso)
 ) ENGINE = InnoDB;
 
 -- Sessões de login. Guarda só o SHA-256 do token; o token em si fica no cliente.
@@ -652,9 +654,9 @@ INSERT INTO aulas (id, id_curso, ordem, titulo, tipo, duracao_segundos, video_ur
   (1607, 16, 7, 'Exercício guiado', 'avaliacao', 1182, 'https://interactive-examples.mdn.mozilla.net/media/cc0-videos/flower.mp4');
 
 INSERT INTO materiais (id, id_curso, nome, tamanho_bytes, url) VALUES
-  (1, 1, 'Guia de comunicação assertiva.pdf', 1480000, NULL),
-  (2, 1, 'Roteiro de feedback.docx', 86000, NULL),
-  (3, 4, 'Planilhas de exercício.xlsx', 320000, NULL);
+  (1, 1, 'Guia de comunicação assertiva.pdf', 1480000, '/materiais/1/arquivo'),
+  (2, 1, 'Roteiro de feedback.docx', 86000, '/materiais/2/arquivo'),
+  (3, 4, 'Planilhas de exercício.xlsx', 320000, '/materiais/3/arquivo');
 
 INSERT INTO atividades (id, id_curso, titulo, descricao, prazo) VALUES
   (1, 2, 'Aplicar a Matriz de Eisenhower na sua semana', 'Monte um cronograma semanal priorizando tarefas urgentes e importantes.', UTC_TIMESTAMP() + INTERVAL 2880 MINUTE),

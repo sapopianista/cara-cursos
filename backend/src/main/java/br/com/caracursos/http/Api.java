@@ -66,6 +66,9 @@ public final class Api {
     }
 
     public Resposta processar(Pedido pedido) {
+        if ("OPTIONS".equalsIgnoreCase(pedido.metodo())) {
+            return new Resposta(204, null, null, cabecalhosCors(Map.of()));
+        }
         String token = extrairToken(pedido.autorizacao());
         Roteador.Encontrada encontrada;
         try {
@@ -119,14 +122,32 @@ public final class Api {
         return null;
     }
 
+    private static String origemCors() {
+        String origem = System.getProperty("CORS_ORIGIN");
+        if (origem == null || origem.isBlank()) origem = System.getenv("CORS_ORIGIN");
+        return (origem == null || origem.isBlank()) ? "*" : origem;
+    }
+
+    private static Map<String, String> cabecalhosCors(Map<String, String> extras) {
+        Map<String, String> cabecalhos = new LinkedHashMap<>();
+        cabecalhos.put("Access-Control-Allow-Origin", origemCors());
+        cabecalhos.put("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+        cabecalhos.put("Access-Control-Allow-Headers", "Authorization, Content-Type, Accept");
+        cabecalhos.put("Access-Control-Expose-Headers", "Content-Disposition");
+        cabecalhos.put("Access-Control-Max-Age", "86400");
+        if (extras != null) cabecalhos.putAll(extras);
+        return Map.copyOf(cabecalhos);
+    }
+
     private static Resposta sucesso(Object resultado) {
-        if (resultado == null) return new Resposta(204, null, null, Map.of());
+        if (resultado == null) return new Resposta(204, null, null, cabecalhosCors(Map.of()));
         if (resultado instanceof Arquivo arquivo) {
             String nome = arquivo.nome().replace("\"", "");
             return new Resposta(200, arquivo.tipoConteudo(), arquivo.conteudo(),
-                    Map.of("Content-Disposition", "attachment; filename=\"" + nome + "\""));
+                    cabecalhosCors(Map.of("Content-Disposition", "attachment; filename=\"" + nome + "\"")));
         }
-        return new Resposta(200, JSON, Json.escrever(resultado).getBytes(StandardCharsets.UTF_8), Map.of());
+        return new Resposta(200, JSON, Json.escrever(resultado).getBytes(StandardCharsets.UTF_8),
+                cabecalhosCors(Map.of()));
     }
 
     private static Resposta erro(ApiException e) {
@@ -134,7 +155,8 @@ public final class Api {
         corpo.put("mensagem", e.getMessage());
         corpo.put("codigo", e.getCodigo());
         corpo.put("campos", e.getCampos());
-        return new Resposta(e.getStatus(), JSON, Json.escrever(corpo).getBytes(StandardCharsets.UTF_8), Map.of());
+        return new Resposta(e.getStatus(), JSON, Json.escrever(corpo).getBytes(StandardCharsets.UTF_8),
+                cabecalhosCors(Map.of()));
     }
 
     private static Resposta erroInterno() {

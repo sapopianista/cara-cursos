@@ -124,10 +124,13 @@ const statusDoProgresso = (p) =>
 
 const enriquecerCurso = (c) => {
   const progresso = db.progressoCursos[c.id] ?? 0;
+  const categoria = db.categorias.find((x) => x.id === c.categoriaId);
+  const area = db.areas.find((x) => x.id === c.areaId);
+  const { categoriaId: _catId, areaId: _areaId, destaque: _dest, lancamento: _lanc, ...base } = c;
   return {
-    ...c,
-    categoria: db.categorias.find((x) => x.id === c.categoriaId),
-    area: db.areas.find((x) => x.id === c.areaId),
+    ...base,
+    categoria: categoria ? { id: categoria.id, nome: categoria.nome } : null,
+    area: area ? { id: area.id, nome: area.nome } : null,
     progresso,
     status: statusDoProgresso(progresso),
   };
@@ -202,13 +205,34 @@ export function getSalaDeAula(cursoId) {
   const trilha = db.trilhas.find((t) => t.cursoIds.includes(c.id));
   const atual =
     aulas.find((a) => a.status === 'em_andamento') ?? aulas.find((a) => a.status === 'pendente') ?? aulas[0];
+  const politicas = { ...db.configuracoes.politicas };
+  const materiais = (db.materiaisPorCurso[c.id] ?? []).map((m) =>
+    politicas.permitirDownloadMateriais ? m : { ...m, url: null },
+  );
   return responder({
     curso: { ...enriquecerCurso(c), trilha: trilha ? { id: trilha.id, titulo: trilha.titulo } : null },
     aulas,
     aulaAtualId: atual.id,
-    materiais: db.materiaisPorCurso[c.id] ?? [],
+    materiais,
+    politicas,
     atividades: db.atividades.filter((a) => a.cursoId === c.id),
   });
+}
+
+export async function baixarMaterial(material) {
+  if (!db.configuracoes.politicas.permitirDownloadMateriais) {
+    return falhar(403, 'O download de materiais de apoio está desativado pela organização.');
+  }
+  await responder(null, 200);
+  const nome = material?.nome ?? 'material.pdf';
+  const pdf = nome.toLowerCase().endsWith('.pdf');
+  salvarBlob(
+    new Blob(
+      [pdf ? '%PDF-1.4\n% Material de apoio demonstrativo' : `Material de apoio demonstrativo: ${nome}`],
+      { type: pdf ? 'application/pdf' : 'application/octet-stream' },
+    ),
+    nome,
+  );
 }
 
 const recalcularProgresso = (cursoId) => {
@@ -227,9 +251,21 @@ export function salvarProgressoAula(cursoId, aulaId, posicaoSegundos) {
 }
 
 export function concluirAula(cursoId, aulaId) {
-  const aula = db.aulasPorCurso[Number(cursoId)]?.find((a) => a.id === Number(aulaId));
+  const aulas = db.aulasPorCurso[Number(cursoId)];
+  const aula = aulas?.find((a) => a.id === Number(aulaId));
   if (!aula) return falhar(404, 'Aula não encontrada.');
+  if (aula.tipo === 'avaliacao' && db.configuracoes.politicas.exigirPresencaMinima) {
+    const regulares = aulas.filter((a) => a.tipo !== 'avaliacao');
+    const concluidas = regulares.filter((a) => a.status === 'concluida').length;
+    const presenca = regulares.length === 0 ? 100 : Math.round((concluidas / regulares.length) * 100);
+    if (presenca < 80) {
+      return falhar(409, 'Conclua pelo menos 80% das aulas antes de realizar a avaliação.', {
+        codigo: 'PRESENCA_MINIMA',
+      });
+    }
+  }
   aula.status = 'concluida';
+  aula.posicaoSegundos = aula.duracaoSegundos;
   const progressoCurso = recalcularProgresso(Number(cursoId));
   return responder({ aula, progressoCurso }, 200);
 }
@@ -362,6 +398,9 @@ export function getPerfil() {
 
 export function atualizarPreferencias(preferencias) {
   db.preferenciasPorUsuario[usuarioLogadoId] = {
+    metaSemanalMinutos: 480,
+    notificacoesEmail: true,
+    resumoSemanal: true,
     ...db.preferenciasPorUsuario[usuarioLogadoId],
     ...preferencias,
   };
@@ -417,6 +456,18 @@ export function marcarTodasNotificacoesLidas() {
 
 // ---------------------------------------------------------------- suporte
 
+const montarChamado = (c) => {
+  const curso = c.cursoId ? db.cursos.find((x) => x.id === c.cursoId) : null;
+  return {
+    id: c.id,
+    assunto: c.assunto,
+    titulo: c.titulo,
+    curso: curso ? { id: curso.id, titulo: curso.titulo } : null,
+    status: c.status,
+    atualizadoEm: c.atualizadoEm,
+  };
+};
+
 export const getSuporte = (escopo) =>
   responder({
     faq: db.faq[escopo],
@@ -426,10 +477,7 @@ export const getSuporte = (escopo) =>
     chamados: db.chamados
       .filter((c) => c.escopo === escopo)
       .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))
-      .map((c) => ({
-        ...c,
-        curso: c.cursoId ? resumoCurso(db.cursos.find((x) => x.id === c.cursoId)) : null,
-      })),
+      .map(montarChamado),
   });
 
 export function abrirChamado(escopo, { assunto, titulo, cursoId, descricao }) {
@@ -448,13 +496,7 @@ export function abrirChamado(escopo, { assunto, titulo, cursoId, descricao }) {
     atualizadoEm: new Date().toISOString(),
   };
   db.chamados.push(chamado);
-  return responder(
-    {
-      ...chamado,
-      curso: chamado.cursoId ? resumoCurso(db.cursos.find((x) => x.id === chamado.cursoId)) : null,
-    },
-    500,
-  );
+  return responder(montarChamado(chamado), 500);
 }
 
 // ---------------------------------------------------------------- admin: dashboard
@@ -520,8 +562,10 @@ const filtrarColaboradores = ({ busca, status, departamento } = {}) => {
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 };
 
+const colaboradorPublico = ({ senha: _senha, trocarSenha: _trocar, ...publico }) => publico;
+
 export const listarColaboradores = ({ pagina = 1, porPagina = 10, ...filtros } = {}) =>
-  responder(paginar(filtrarColaboradores(filtros), pagina, porPagina));
+  responder(paginar(filtrarColaboradores(filtros).map(colaboradorPublico), pagina, porPagina));
 
 const licencasEmUso = () => db.colaboradores.filter((c) => c.status !== 'inativo').length;
 
@@ -544,12 +588,25 @@ export function getResumoColaboradores() {
 export const getOpcoesColaboradores = () =>
   responder({ cargos: db.cargos, departamentos: db.departamentos, niveis: [1, 2, 3, 4] }, 100);
 
+const dominiosAutorizados = () =>
+  String(db.configuracoes.organizacao.dominiosAutorizados ?? '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+
 const validarColaborador = (dados, idAtual) => {
   const campos = {};
   if (!String(dados.nome ?? '').trim()) campos.nome = 'Informe o nome completo.';
   if (!emailValido(dados.email)) campos.email = 'Informe um e-mail válido.';
-  else if (db.colaboradores.some((c) => c.email === dados.email.trim().toLowerCase() && c.id !== idAtual)) {
-    campos.email = 'Já existe um colaborador com este e-mail.';
+  else {
+    const dominios = dominiosAutorizados();
+    const emailNormalizado = dados.email.trim().toLowerCase();
+    const dominio = emailNormalizado.split('@')[1];
+    if (dominios.length > 0 && !dominios.includes(dominio)) {
+      campos.email = `Use um domínio autorizado: ${dominios.join(', ')}.`;
+    } else if (db.colaboradores.some((c) => c.email === emailNormalizado && c.id !== idAtual)) {
+      campos.email = 'Já existe um colaborador com este e-mail.';
+    }
   }
   if (!dados.cargo) campos.cargo = 'Escolha um cargo.';
   if (!dados.departamento) campos.departamento = 'Escolha um departamento.';
@@ -584,8 +641,7 @@ export function criarColaborador(dados) {
     trocarSenha: true,
   };
   db.colaboradores.push(novo);
-  const { senha: _senha, trocarSenha: _trocar, ...publico } = novo;
-  return responder(publico, 500);
+  return responder(colaboradorPublico(novo), 500);
 }
 
 export function atualizarColaborador(id, dados) {
@@ -598,7 +654,7 @@ export function atualizarColaborador(id, dados) {
     email: dados.email.trim().toLowerCase(),
     nivel: Number(dados.nivel) || c.nivel,
   });
-  return responder(c, 400);
+  return responder(colaboradorPublico(c), 400);
 }
 
 export function redefinirSenhaColaborador(id, senha) {
@@ -629,7 +685,7 @@ export function alterarStatusColaborador(id, status) {
     return falhar(409, 'Não há licenças livres para reativar este colaborador.', { codigo: 'SEM_LICENCAS' });
   }
   c.status = status;
-  return responder(c, 400);
+  return responder(colaboradorPublico(c), 400);
 }
 
 export function getProgressoColaborador(id) {
@@ -640,7 +696,7 @@ export function getProgressoColaborador(id) {
     const progresso = Math.max(0, Math.min(100, c.progresso + (i - 1) * 25));
     return { curso: resumoCurso(curso), progresso, status: statusDoProgresso(progresso) };
   });
-  return responder({ colaborador: c, cursos: c.status === 'pendente' ? [] : cursosDaPessoa }, 300);
+  return responder({ colaborador: colaboradorPublico(c), cursos: c.status === 'pendente' ? [] : cursosDaPessoa }, 300);
 }
 
 /** Na API real: GET /admin/colaboradores/exportar (text/csv). Aqui geramos o mesmo CSV no navegador. */
@@ -772,20 +828,43 @@ export const getRelatorios = () =>
 export function gerarRelatorio({ modeloId, periodo, departamento }) {
   if (!db.modelosRelatorio.some((m) => m.id === modeloId))
     return falhar(422, 'Modelo de relatório inválido.');
+  const id = proximoId(db.relatoriosGerados);
   const relatorio = {
-    id: proximoId(db.relatoriosGerados),
+    id,
     modeloId,
     periodo,
     departamento: departamento || null,
-    status: 'processando',
+    status: 'pronto',
     solicitadoPor: usuarioAtual()?.nome ?? '—',
     criadoEm: new Date().toISOString(),
-    url: null,
+    url: `/admin/relatorios/${id}/arquivo`,
   };
   db.relatoriosGerados.push(relatorio);
-  // Simula o processamento assíncrono no servidor.
-  setTimeout(() => (relatorio.status = 'pronto'), 3000);
   return responder(montarRelatorio(relatorio), 400);
+}
+
+export async function baixarCertificado(certificado) {
+  await responder(null, 200);
+  salvarBlob(
+    new Blob(['%PDF-1.4\n% Certificado demonstrativo'], { type: 'application/pdf' }),
+    `certificado-${certificado.codigo}.pdf`,
+  );
+}
+
+export async function baixarRelatorio(relatorio) {
+  await responder(null, 200);
+  salvarBlob(
+    new Blob(['Relatorio demonstrativo'], { type: 'text/plain;charset=utf-8' }),
+    `${relatorio.modeloId ?? 'relatorio'}-${relatorio.id}.${relatorio.modelo?.formato ?? 'csv'}`,
+  );
+}
+
+export async function baixarNotaFiscal(fatura) {
+  await responder(null, 200);
+  salvarBlob(
+    new Blob(['%PDF-1.4\n% Demonstrativo de fatura'], { type: 'application/pdf' }),
+    `${fatura.notaFiscal.numero}.pdf`,
+  );
 }
 
 // ---------------------------------------------------------------- admin: faturamento

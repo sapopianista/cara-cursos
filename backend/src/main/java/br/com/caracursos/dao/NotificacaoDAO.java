@@ -8,11 +8,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.com.caracursos.model.Notificacao;
+
 /** Notificações do usuário (tabela {@code notificacoes}). */
 public class NotificacaoDAO {
-
-    public record Notificacao(int id, String titulo, String descricao, String link, boolean lida, Instant criadaEm) {
-    }
 
     private static final int LIMITE = 50;
 

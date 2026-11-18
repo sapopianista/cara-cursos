@@ -4,6 +4,7 @@ import java.sql.SQLException;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -12,6 +13,7 @@ import java.util.Locale;
 import java.util.Map;
 
 import br.com.caracursos.dao.ColaboradorDAO;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.RelatorioDAO;
 import br.com.caracursos.dao.RelatorioDAO.Gerado;
 import br.com.caracursos.http.ApiException;
@@ -108,22 +110,23 @@ public class RelatorioRecurso {
         }
         if (!campos.isEmpty()) throw ApiException.validacao(campos);
 
+        ZoneId fuso = new EmpresaDAO(req.conexao()).fusoHorario();
         Instant agora = Relogio.agora();
         Instant desde = agora.minus(Duration.ofDays(DIAS_PERIODO.get(periodo)));
         String subtitulo = ROTULO_PERIODO.get(periodo) + " · "
                 + (departamento == null ? "Todos os departamentos" : departamento)
-                + " · Gerado em " + DATA_HORA.format(agora) + " por " + req.usuario().getNome();
+                + " · Gerado em " + DATA_HORA.withZone(fuso).format(agora) + " por " + req.usuario().getNome();
         RelatorioDAO dao = new RelatorioDAO(req.conexao());
         byte[] conteudo = switch (modelo.id()) {
-            case "engajamento" -> engajamento(dao, desde, departamento);
+            case "engajamento" -> engajamento(dao, desde, departamento, fuso);
             case "conclusao" -> conclusao(dao, desde, departamento, modelo.titulo(), subtitulo);
             case "horas" -> horas(dao, desde, departamento, modelo.titulo(), subtitulo);
             case "satisfacao" -> satisfacao(dao, desde, departamento);
-            case "individual" -> individual(dao, desde, departamento, modelo.titulo(), subtitulo);
-            case "conformidade" -> conformidade(dao, departamento);
+            case "individual" -> individual(dao, desde, departamento, modelo.titulo(), subtitulo, fuso);
+            case "conformidade" -> conformidade(dao, departamento, fuso);
             default -> throw new IllegalStateException("Modelo sem gerador: " + modelo.id());
         };
-        String nome = modelo.id() + "-" + LocalDate.ofInstant(agora, Relogio.FUSO_EMPRESA) + "." + modelo.formato();
+        String nome = modelo.id() + "-" + LocalDate.ofInstant(agora, fuso) + "." + modelo.formato();
         int id = dao.salvar(modelo.id(), periodo, departamento, req.idUsuario(), req.usuario().getNome(), agora,
                 new RelatorioDAO.Arquivo(nome, conteudo));
         return json(dao.buscar(id));
@@ -138,8 +141,8 @@ public class RelatorioRecurso {
 
     // ---- geradores ---------------------------------------------------------
 
-    private static String dataHora(Instant instante) {
-        return instante == null ? "" : DATA_HORA.format(instante);
+    private static String dataHora(Instant instante, ZoneId fuso) {
+        return instante == null ? "" : DATA_HORA.withZone(fuso).format(instante);
     }
 
     private static String percentual(int parte, int total) {
@@ -150,12 +153,13 @@ public class RelatorioRecurso {
         return String.format(PT_BR, "%.1f", valor);
     }
 
-    private static byte[] engajamento(RelatorioDAO dao, Instant desde, String departamento) throws SQLException {
+    private static byte[] engajamento(RelatorioDAO dao, Instant desde, String departamento, ZoneId fuso)
+            throws SQLException {
         Csv csv = new Csv("Matrícula", "Nome", "Departamento", "Acessos no período", "Dias com acesso",
                 "Aulas concluídas no período", "Último acesso");
         for (RelatorioDAO.Engajamento e : dao.engajamento(desde, departamento)) {
             csv.linha(e.matricula(), e.nome(), e.departamento(), e.acessos(), e.diasComAcesso(), e.aulasConcluidas(),
-                    dataHora(e.ultimoAcesso()));
+                    dataHora(e.ultimoAcesso(), fuso));
         }
         return csv.bytes();
     }
@@ -199,12 +203,12 @@ public class RelatorioRecurso {
     }
 
     private static byte[] individual(RelatorioDAO dao, Instant desde, String departamento, String titulo,
-                                     String subtitulo) throws SQLException {
+                                     String subtitulo, ZoneId fuso) throws SQLException {
         List<List<String>> linhas = new ArrayList<>();
         for (RelatorioDAO.Desempenho d : dao.desempenho(desde, departamento)) {
             linhas.add(List.of(d.nome(), d.departamento(), String.valueOf(d.concluidos()),
                     String.valueOf(d.emAndamento()), d.progressoMedio() + "%", String.valueOf(d.certificados()),
-                    String.valueOf(d.aulasNoPeriodo()), dataHora(d.ultimoAcesso())));
+                    String.valueOf(d.aulasNoPeriodo()), dataHora(d.ultimoAcesso(), fuso)));
         }
         return TabelaPdf.gerar(titulo, subtitulo, List.of(new Coluna("Colaborador", 3, false),
                 new Coluna("Departamento", 2.2, false), new Coluna("Concluídos", 1.2, true),
@@ -213,14 +217,15 @@ public class RelatorioRecurso {
                 new Coluna("Último acesso", 1.9, false)), linhas);
     }
 
-    private static byte[] conformidade(RelatorioDAO dao, String departamento) throws SQLException {
+    private static byte[] conformidade(RelatorioDAO dao, String departamento, ZoneId fuso) throws SQLException {
+        DateTimeFormatter data = DATA.withZone(fuso);
         Csv csv = new Csv("Matrícula", "Nome", "Departamento", "Treinamento obrigatório", "Situação", "Progresso (%)",
                 "Concluído em");
         for (RelatorioDAO.Conformidade c : dao.conformidade(departamento)) {
             String situacao = c.progresso() == null ? "Não iniciado"
                     : c.progresso() >= 100 ? "Concluído" : "Em andamento";
             csv.linha(c.matricula(), c.nome(), c.departamento(), c.curso(), situacao,
-                    c.progresso() == null ? 0 : c.progresso(), c.concluidoEm() == null ? "" : DATA.format(c.concluidoEm()));
+                    c.progresso() == null ? 0 : c.progresso(), c.concluidoEm() == null ? "" : data.format(c.concluidoEm()));
         }
         return csv.bytes();
     }

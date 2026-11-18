@@ -16,7 +16,7 @@ import { StatusBadge } from '../../components/ui/Badge';
 import { CampoSelecao } from '../../components/ui/Campo';
 import { ErroCarregamento, SkeletonPagina } from '../../components/ui/Estados';
 
-const ICONE_FORMATO = { xlsx: FileSpreadsheet, csv: FileSpreadsheet, pdf: FileText };
+const ICONE_FORMATO = { csv: FileSpreadsheet, pdf: FileText };
 const INTERVALO_CONSULTA_MS = 2500;
 
 export default function Relatorios() {

@@ -8,6 +8,7 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.com.caracursos.model.Gestor;
 import br.com.caracursos.model.Usuario.TipoPerfil;
 
 /**
@@ -15,11 +16,6 @@ import br.com.caracursos.model.Usuario.TipoPerfil;
  * O id do gestor é o id do usuário.
  */
 public class GestorDAO {
-
-    /** Formato {@code Gestor} do contrato. {@code ultimoAcesso} só vem depois que o convite foi aceito. */
-    public record Gestor(int id, int colaboradorId, String nome, String email, String departamento, String papel,
-                         String status, Instant convidadoEm, Instant ultimoAcesso) {
-    }
 
     public record Candidato(int id, String nome, String email, String departamento) {
     }

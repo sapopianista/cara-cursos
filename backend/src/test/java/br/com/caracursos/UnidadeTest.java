@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -15,15 +16,19 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
-import br.com.caracursos.dao.CertificadoDAO;
 import br.com.caracursos.http.Json;
-import br.com.caracursos.http.Pagina;
+import br.com.caracursos.model.Certificado;
+import br.com.caracursos.model.Curso;
+import br.com.caracursos.model.Pagina;
+import br.com.caracursos.model.Usuario;
 import br.com.caracursos.seguranca.LimiteLogin;
 import br.com.caracursos.seguranca.Senhas;
 import br.com.caracursos.seguranca.Tokens;
 import br.com.caracursos.util.CertificadoPdf;
 import br.com.caracursos.util.Cnpj;
 import br.com.caracursos.util.Csv;
+import br.com.caracursos.util.Email;
+import br.com.caracursos.util.Relogio;
 import br.com.caracursos.util.TabelaPdf;
 
 /** Testes que não precisam de banco. */
@@ -124,7 +129,7 @@ class UnidadeTest {
 
     @Test
     void certificadoPdfTemEstruturaValida() {
-        CertificadoDAO.Certificado c = new CertificadoDAO.Certificado(1, "Segurança da Informação (LGPD)", "Curso",
+        Certificado c = new Certificado(1, "Segurança da Informação (LGPD)", "Curso",
                 Instant.parse("2026-10-30T14:15:00Z"), "CC-1234-SEG", "/certificados/1/arquivo");
         byte[] pdf = CertificadoPdf.gerar("Ana Clara Silveira", c, "Oscorp");
         String texto = new String(pdf, StandardCharsets.ISO_8859_1);
@@ -137,5 +142,32 @@ class UnidadeTest {
         String primeiraEntrada = texto.substring(inicioXref).split("\n")[3];
         int posicaoObjeto1 = Integer.parseInt(primeiraEntrada.substring(0, 10));
         assertTrue(texto.startsWith("1 0 obj", posicaoObjeto1));
+    }
+
+    @Test
+    void usuarioNaoSerializaSenhaECursoTemEstadoInicialSeguro() {
+        String json = Json.escrever(new Usuario(1, "Ana", "a@b.com", "segredo", Usuario.TipoPerfil.COLABORADOR));
+        assertFalse(json.contains("segredo"));
+        assertFalse(json.contains("\"senha\""));
+
+        Curso a = new Curso();
+        Curso b = new Curso();
+        assertEquals("nao_iniciado", a.getStatus());
+        assertNotEquals(a, b);
+        assertEquals(a, a);
+    }
+
+    @Test
+    void fusoHorarioEDominiosAutorizadosDaEmpresa() {
+        assertEquals(ZoneId.of("America/Manaus"), Relogio.fuso(" America/Manaus "));
+        assertEquals(Relogio.FUSO_EMPRESA, Relogio.fuso(null));
+        assertEquals(Relogio.FUSO_EMPRESA, Relogio.fuso("Marte/Olimpo"));
+
+        List<String> dominios = Email.dominios("Oscorp.com, lab.oscorp.com, oscorp.com");
+        assertEquals(List.of("oscorp.com", "lab.oscorp.com"), dominios);
+        assertTrue(Email.dominioAutorizado("ana@OSCORP.com", dominios));
+        assertTrue(Email.dominioAutorizado("dev@lab.oscorp.com", dominios));
+        assertFalse(Email.dominioAutorizado("ana@gmail.com", dominios));
+        assertTrue(Email.dominioAutorizado("ana@gmail.com", List.of()), "lista vazia libera qualquer domínio");
     }
 }

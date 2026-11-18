@@ -9,16 +9,11 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
-import br.com.caracursos.http.Pagina;
+import br.com.caracursos.model.Colaborador;
+import br.com.caracursos.model.Pagina;
 
 /** Visão de gestão dos usuários: listagem com progresso agregado, resumo e opções de cadastro. */
 public class ColaboradorDAO {
-
-    /** Formato {@code Colaborador} do contrato. */
-    public record Colaborador(int id, String matricula, String nome, String email, String cargo, String departamento,
-                              int nivel, int progresso, int cursosConcluidos, String status, Instant ultimoAcesso,
-                              Instant criadoEm) {
-    }
 
     /** Filtros de {@code GET /admin/colaboradores}. {@code status} "todos" ou nulo = sem filtro. */
     public record Filtro(String busca, String status, String departamento) {
@@ -123,7 +118,8 @@ public class ColaboradorDAO {
     private static String montarWhere(Filtro f, List<Object> valores) {
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         if (f.busca() != null) {
-            where.append(" AND (u.nome LIKE ? OR u.email LIKE ? OR u.departamento LIKE ? OR u.cargo LIKE ?)");
+            where.append(" AND (u.nome LIKE ? ESCAPE '\\\\' OR u.email LIKE ? ESCAPE '\\\\' "
+                    + "OR u.departamento LIKE ? ESCAPE '\\\\' OR u.cargo LIKE ? ESCAPE '\\\\')");
             String termo = Jdbc.contem(f.busca());
             for (int i = 0; i < 4; i++) valores.add(termo);
         }

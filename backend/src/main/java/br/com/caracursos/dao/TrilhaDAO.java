@@ -5,21 +5,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
-import br.com.caracursos.http.Json;
 import br.com.caracursos.model.Curso;
+import br.com.caracursos.model.CursoRef;
+import br.com.caracursos.model.Trilha;
 
 /** Trilhas (sequências de cursos) e níveis de carreira. */
 public class TrilhaDAO {
-
-    /** Formato da listagem de trilhas do contrato. */
-    public record Trilha(int id, String titulo, String descricao, String nivel, String tema, List<String> competencias,
-                         int totalCursos, int duracaoMinutos, int progresso, String status) {
-    }
-
-    public record Referencia(int id, String titulo) {
-    }
 
     /** Nível de carreira com os cursos na ordem. */
     public record Nivel(int id, int ordem, String titulo, String perfil, List<String> competencias,
@@ -55,30 +50,36 @@ public class TrilhaDAO {
     }
 
     /** Primeira trilha que contém o curso (exibida na sala de aula), ou {@code null}. */
-    public Referencia trilhaDoCurso(int idCurso) throws SQLException {
+    public CursoRef trilhaDoCurso(int idCurso) throws SQLException {
         String sql = "SELECT t.id, t.titulo FROM trilha_cursos tc JOIN trilhas t ON t.id = tc.id_trilha "
                 + "WHERE tc.id_curso = ? ORDER BY t.id LIMIT 1";
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {
             Jdbc.preencher(ps, idCurso);
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? new Referencia(rs.getInt("id"), rs.getString("titulo")) : null;
+                return rs.next() ? new CursoRef(rs.getInt("id"), rs.getString("titulo")) : null;
             }
         }
     }
 
     public List<Nivel> niveis() throws SQLException {
-        List<Nivel> lista = new ArrayList<>();
-        String sql = "SELECT id, ordem, titulo, perfil, competencias FROM niveis ORDER BY ordem";
+        Map<Integer, Nivel> porId = new LinkedHashMap<>();
+        String sql = "SELECT n.id, n.ordem, n.titulo, n.perfil, n.competencias, nc.id_curso "
+                + "FROM niveis n LEFT JOIN nivel_cursos nc ON nc.id_nivel = n.id "
+                + "ORDER BY n.ordem, nc.ordem";
         try (PreparedStatement ps = conexao.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                lista.add(new Nivel(rs.getInt("id"), rs.getInt("ordem"), rs.getString("titulo"),
-                        rs.getString("perfil"), Json.listaDeTexto(rs.getString("competencias")), new ArrayList<>()));
+                int id = rs.getInt("id");
+                Nivel nivel = porId.get(id);
+                if (nivel == null) {
+                    nivel = new Nivel(id, rs.getInt("ordem"), rs.getString("titulo"),
+                            rs.getString("perfil"), Jdbc.listaDeTexto(rs.getString("competencias")), new ArrayList<>());
+                    porId.put(id, nivel);
+                }
+                int idCurso = rs.getInt("id_curso");
+                if (!rs.wasNull()) nivel.cursoIds().add(idCurso);
             }
         }
-        for (Nivel n : lista) {
-            n.cursoIds().addAll(ids("SELECT id_curso FROM nivel_cursos WHERE id_nivel = ? ORDER BY ordem", n.id()));
-        }
-        return lista;
+        return new ArrayList<>(porId.values());
     }
 
     private List<Integer> ids(String sql, int id) throws SQLException {
@@ -101,7 +102,7 @@ public class TrilhaDAO {
                     int progresso = rs.getInt("progresso");
                     lista.add(new Trilha(rs.getInt("id"), rs.getString("titulo"), rs.getString("descricao"),
                             rs.getString("nivel"), rs.getString("tema"),
-                            Json.listaDeTexto(rs.getString("competencias")), rs.getInt("total_cursos"),
+                            Jdbc.listaDeTexto(rs.getString("competencias")), rs.getInt("total_cursos"),
                             rs.getInt("duracao"), progresso, Curso.statusDoProgresso(progresso)));
                 }
             }

@@ -1,7 +1,11 @@
 package br.com.caracursos.http;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 
@@ -34,5 +38,14 @@ class RoteadorTest {
     void metodoErradoE405CaminhoInexistenteE404() {
         assertEquals(405, assertThrows(ApiException.class, () -> roteador.encontrar("DELETE", "/cursos/3")).getStatus());
         assertEquals(404, assertThrows(ApiException.class, () -> roteador.encontrar("GET", "/nada")).getStatus());
+    }
+
+    @Test
+    void optionsResponde204ComCabecalhosCors() {
+        Api.Resposta resposta = new Api().processar(new Api.Pedido("OPTIONS", "/cursos", Map.of(), "", null));
+        assertEquals(204, resposta.status());
+        assertNotNull(resposta.cabecalhos().get("Access-Control-Allow-Origin"));
+        assertTrue(resposta.cabecalhos().get("Access-Control-Allow-Methods").contains("OPTIONS"));
+        assertEquals("Content-Disposition", resposta.cabecalhos().get("Access-Control-Expose-Headers"));
     }
 }
