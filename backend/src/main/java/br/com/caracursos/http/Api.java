@@ -32,9 +32,16 @@ import br.com.caracursos.seguranca.Permissao;
  */
 public final class Api {
 
+    /** Limite do corpo HTTP (64 KB): suficiente para a maior entrega de atividade (10.000 caracteres). */
+    public static final int CORPO_MAXIMO_BYTES = 64 * 1024;
+
     /** Requisição já extraída do HTTP. {@code caminho} é relativo a /api (ex.: "/cursos/3"). */
     public record Pedido(String metodo, String caminho, Map<String, String> parametros, String corpo,
-                         String autorizacao) {
+                         String autorizacao, String ip) {
+        public Pedido(String metodo, String caminho, Map<String, String> parametros, String corpo,
+                      String autorizacao) {
+            this(metodo, caminho, parametros, corpo, autorizacao, null);
+        }
     }
 
     public record Resposta(int status, String tipoConteudo, byte[] corpo, Map<String, String> cabecalhos) {
@@ -66,6 +73,12 @@ public final class Api {
     }
 
     public Resposta processar(Pedido pedido) {
+        if (pedido.corpo() != null
+                && (pedido.corpo().length() > CORPO_MAXIMO_BYTES
+                    || pedido.corpo().getBytes(StandardCharsets.UTF_8).length > CORPO_MAXIMO_BYTES)) {
+            return erro(new ApiException(413, "CORPO_MUITO_GRANDE",
+                    "Os dados enviados ultrapassam o limite permitido.", null));
+        }
         String token = extrairToken(pedido.autorizacao());
         Roteador.Encontrada encontrada;
         try {
@@ -74,7 +87,8 @@ public final class Api {
             return erro(e);
         }
 
-        try (Requisicao requisicao = new Requisicao(encontrada.variaveis(), pedido.parametros(), pedido.corpo(), token)) {
+        try (Requisicao requisicao = new Requisicao(encontrada.variaveis(), pedido.parametros(), pedido.corpo(), token,
+                pedido.ip())) {
             Permissao permissao = encontrada.rota().permissao();
             if (permissao != null) autenticar(requisicao, token, permissao, encontrada.rota());
             return sucesso(encontrada.rota().acao().executar(requisicao));

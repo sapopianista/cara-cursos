@@ -16,7 +16,7 @@ public final class CertificadoPdf {
     private static final double LARGURA = 842;
     private static final double ALTURA = 595;
     private static final DateTimeFormatter DATA =
-            DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale.of("pt", "BR")).withZone(Relogio.FUSO_EMPRESA);
+            DateTimeFormatter.ofPattern("d 'de' MMMM 'de' yyyy", Locale.of("pt", "BR"));
 
     private CertificadoPdf() {
     }
@@ -36,8 +36,9 @@ public final class CertificadoPdf {
                 nivel ? "concluiu todos os cursos do " + certificado.origem().toLowerCase(Locale.ROOT)
                         : "concluiu o curso");
         texto(c, "F2", 22, 0.42, 0.36, 0.90, ALTURA - 365, certificado.titulo());
-        texto(c, "F1", 12, 0.35, 0.35, 0.40, 120, "Emitido em " + DATA.format(certificado.emitidoEm())
-                + (empresa == null ? "" : " · " + empresa));
+        texto(c, "F1", 12, 0.35, 0.35, 0.40, 120,
+                "Emitido em " + DATA.withZone(Relogio.fuso()).format(certificado.emitidoEm())
+                        + (empresa == null ? "" : " · " + empresa));
         texto(c, "F1", 11, 0.50, 0.50, 0.55, 96, "Código de verificação: " + certificado.codigo());
 
         List<byte[]> objetos = new ArrayList<>();
@@ -51,13 +52,17 @@ public final class CertificadoPdf {
         return Pdf.montar(objetos);
     }
 
-    /** Linha de texto centralizada horizontalmente. */
+    /** Linha de texto centralizada horizontalmente; reduz a fonte se ultrapassar a largura da moldura. */
     private static void texto(StringBuilder c, String fonte, double tamanho, double r, double g, double b, double y,
                               String texto) {
         String limpo = texto.replace("\r", " ").replace("\n", " ");
-        double largura = Pdf.larguraAproximada(limpo, tamanho, fonte.equals("F2"));
-        double x = Math.max(56, (LARGURA - largura) / 2);
+        boolean negrito = fonte.equals("F2");
+        double larguraMaxima = LARGURA - 112;
+        double largura = Pdf.larguraAproximada(limpo, tamanho, negrito);
+        double tamanhoFinal = largura > larguraMaxima ? Math.max(10, tamanho * larguraMaxima / largura) : tamanho;
+        double larguraFinal = Pdf.larguraAproximada(limpo, tamanhoFinal, negrito);
+        double x = Math.max(56, (LARGURA - larguraFinal) / 2);
         c.append(String.format(Locale.ROOT, "BT %.2f %.2f %.2f rg /%s %.1f Tf %.1f %.1f Td (%s) Tj ET%n",
-                r, g, b, fonte, tamanho, x, y, Pdf.escapar(limpo)));
+                r, g, b, fonte, tamanhoFinal, x, y, Pdf.escapar(limpo)));
     }
 }

@@ -9,16 +9,19 @@ import * as db from './db';
 
 // ---------------------------------------------------------------- utilitários
 
-const LATENCIA = import.meta.env.MODE === 'test' ? 0 : 350;
+const EM_TESTE = import.meta.env.MODE === 'test';
+const LATENCIA = 350;
 
 /** Simula a rede: atraso + cópia profunda (o chamador nunca altera o "banco"). */
 const responder = (dados, ms = LATENCIA) =>
   new Promise((resolve) =>
-    setTimeout(() => resolve(dados === undefined ? null : structuredClone(dados)), ms),
+    setTimeout(() => resolve(dados === undefined ? null : structuredClone(dados)), EM_TESTE ? 0 : ms),
   );
 
 const falhar = (status, mensagem, extras = {}, ms = LATENCIA) =>
-  new Promise((_, reject) => setTimeout(() => reject(new ErroApi(mensagem, { status, ...extras })), ms));
+  new Promise((_, reject) =>
+    setTimeout(() => reject(new ErroApi(mensagem, { status, ...extras })), EM_TESTE ? 0 : ms),
+  );
 
 const normalizar = (t = '') => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 
@@ -42,6 +45,47 @@ const proximoId = (lista, campo = 'id') => Math.max(0, ...lista.map((i) => Numbe
 let usuarioLogadoId = null;
 
 const PAPEL_COLABORADOR = 'colaborador';
+
+const SNAPSHOT_INICIAL = structuredClone({
+  empresa: db.empresa,
+  progressoCursos: db.progressoCursos,
+  aulasPorCurso: db.aulasPorCurso,
+  atividades: db.atividades,
+  certificados: db.certificados,
+  colaboradores: db.colaboradores,
+  gestores: db.gestores,
+  auditoria: db.auditoria,
+  preferenciasPorUsuario: db.preferenciasPorUsuario,
+  chamados: db.chamados,
+  notificacoes: db.notificacoes,
+  relatoriosGerados: db.relatoriosGerados,
+  contrato: db.contrato,
+  faturas: db.faturas,
+  configuracoes: db.configuracoes,
+});
+
+/** Restaura o banco em memória para o estado inicial (usado entre testes). */
+export function resetarMock() {
+  usuarioLogadoId = null;
+  const copia = structuredClone(SNAPSHOT_INICIAL);
+  Object.entries(copia).forEach(([chave, valor]) => {
+    const alvo = db[chave];
+    if (Array.isArray(alvo)) {
+      alvo.splice(0, alvo.length, ...valor);
+    } else if (alvo && typeof alvo === 'object') {
+      Object.keys(alvo).forEach((k) => delete alvo[k]);
+      Object.assign(alvo, valor);
+    }
+  });
+}
+
+const papelColaborador = (colaboradorId) =>
+  db.gestores.find((g) => g.colaboradorId === colaboradorId)?.papel ?? PAPEL_COLABORADOR;
+
+const enriquecerColaborador = (c) => ({
+  ...c,
+  papel: papelColaborador(c.id),
+});
 
 const montarUsuario = (colaboradorId) => {
   const c = db.colaboradores.find((x) => x.id === colaboradorId);
@@ -202,11 +246,15 @@ export function getSalaDeAula(cursoId) {
   const trilha = db.trilhas.find((t) => t.cursoIds.includes(c.id));
   const atual =
     aulas.find((a) => a.status === 'em_andamento') ?? aulas.find((a) => a.status === 'pendente') ?? aulas[0];
+  const permitirDownload = db.configuracoes.politicas.permitirDownloadMateriais;
+  const materiais = (db.materiaisPorCurso[c.id] ?? []).map((m) =>
+    permitirDownload ? m : { ...m, url: null },
+  );
   return responder({
     curso: { ...enriquecerCurso(c), trilha: trilha ? { id: trilha.id, titulo: trilha.titulo } : null },
     aulas,
     aulaAtualId: atual.id,
-    materiais: db.materiaisPorCurso[c.id] ?? [],
+    materiais,
     atividades: db.atividades.filter((a) => a.cursoId === c.id),
   });
 }
@@ -227,8 +275,19 @@ export function salvarProgressoAula(cursoId, aulaId, posicaoSegundos) {
 }
 
 export function concluirAula(cursoId, aulaId) {
-  const aula = db.aulasPorCurso[Number(cursoId)]?.find((a) => a.id === Number(aulaId));
+  const aulas = db.aulasPorCurso[Number(cursoId)];
+  const aula = aulas?.find((a) => a.id === Number(aulaId));
   if (!aula) return falhar(404, 'Aula não encontrada.');
+  if (aula.tipo === 'avaliacao' && db.configuracoes.politicas.exigirPresencaMinima) {
+    const anteriores = aulas.filter((a) => a.tipo !== 'avaliacao');
+    const concluidas = anteriores.filter((a) => a.status === 'concluida').length;
+    const pct = anteriores.length === 0 ? 100 : Math.round((concluidas / anteriores.length) * 100);
+    if (pct < 80) {
+      return falhar(409, 'Assista a pelo menos 80% das aulas do curso antes de concluir a avaliação.', {
+        codigo: 'PRESENCA_MINIMA',
+      });
+    }
+  }
   aula.status = 'concluida';
   const progressoCurso = recalcularProgresso(Number(cursoId));
   return responder({ aula, progressoCurso }, 200);
@@ -434,15 +493,19 @@ export const getSuporte = (escopo) =>
 
 export function abrirChamado(escopo, { assunto, titulo, cursoId, descricao }) {
   const campos = {};
-  if (!assunto) campos.assunto = 'Escolha um assunto.';
-  if (!String(titulo ?? '').trim()) campos.titulo = 'Resuma o problema em poucas palavras.';
-  if (String(descricao ?? '').trim().length < 10) campos.descricao = 'Descreva com pelo menos 10 caracteres.';
+  const textoTitulo = String(titulo ?? '').trim();
+  const textoDescricao = String(descricao ?? '').trim();
+  if (!assunto || !db.assuntosChamado[escopo]?.includes(assunto)) campos.assunto = 'Escolha um assunto.';
+  if (!textoTitulo) campos.titulo = 'Resuma o problema em poucas palavras.';
+  else if (textoTitulo.length > 150) campos.titulo = 'Use no máximo 150 caracteres.';
+  if (textoDescricao.length < 10) campos.descricao = 'Descreva com pelo menos 10 caracteres.';
+  else if (textoDescricao.length > 5000) campos.descricao = 'Use no máximo 5000 caracteres.';
   if (Object.keys(campos).length) return falhar(422, 'Revise os campos destacados.', { campos });
   const chamado = {
     id: proximoId(db.chamados),
     escopo,
     assunto,
-    titulo: titulo.trim(),
+    titulo: textoTitulo,
     cursoId: cursoId ? Number(cursoId) : null,
     status: 'em_analise',
     atualizadoEm: new Date().toISOString(),
@@ -517,6 +580,7 @@ const filtrarColaboradores = ({ busca, status, departamento } = {}) => {
     .filter((c) => !status || status === 'todos' || c.status === status)
     .filter((c) => !departamento || c.departamento === departamento)
     .filter((c) => !termo || normalizar(`${c.nome} ${c.email} ${c.departamento} ${c.cargo}`).includes(termo))
+    .map(enriquecerColaborador)
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 };
 
@@ -544,12 +608,26 @@ export function getResumoColaboradores() {
 export const getOpcoesColaboradores = () =>
   responder({ cargos: db.cargos, departamentos: db.departamentos, niveis: [1, 2, 3, 4] }, 100);
 
+const dominiosAutorizados = () =>
+  (db.configuracoes.organizacao.dominiosAutorizados ?? '')
+    .split(',')
+    .map((d) => d.trim().toLowerCase())
+    .filter(Boolean);
+
 const validarColaborador = (dados, idAtual) => {
   const campos = {};
   if (!String(dados.nome ?? '').trim()) campos.nome = 'Informe o nome completo.';
-  if (!emailValido(dados.email)) campos.email = 'Informe um e-mail válido.';
-  else if (db.colaboradores.some((c) => c.email === dados.email.trim().toLowerCase() && c.id !== idAtual)) {
-    campos.email = 'Já existe um colaborador com este e-mail.';
+  if (!emailValido(dados.email)) {
+    campos.email = 'Informe um e-mail válido.';
+  } else {
+    const emailLimpo = dados.email.trim().toLowerCase();
+    const dominios = dominiosAutorizados();
+    const dominio = emailLimpo.slice(emailLimpo.indexOf('@') + 1);
+    if (dominios.length > 0 && !dominios.includes(dominio)) {
+      campos.email = `Use um e-mail dos domínios autorizados (${dominios.join(', ')}).`;
+    } else if (db.colaboradores.some((c) => c.email === emailLimpo && c.id !== idAtual)) {
+      campos.email = 'Já existe um colaborador com este e-mail.';
+    }
   }
   if (!dados.cargo) campos.cargo = 'Escolha um cargo.';
   if (!dados.departamento) campos.departamento = 'Escolha um departamento.';
@@ -585,7 +663,7 @@ export function criarColaborador(dados) {
   };
   db.colaboradores.push(novo);
   const { senha: _senha, trocarSenha: _trocar, ...publico } = novo;
-  return responder(publico, 500);
+  return responder(enriquecerColaborador(publico), 500);
 }
 
 export function atualizarColaborador(id, dados) {
@@ -598,7 +676,7 @@ export function atualizarColaborador(id, dados) {
     email: dados.email.trim().toLowerCase(),
     nivel: Number(dados.nivel) || c.nivel,
   });
-  return responder(c, 400);
+  return responder(enriquecerColaborador(c), 400);
 }
 
 export function redefinirSenhaColaborador(id, senha) {
@@ -629,7 +707,7 @@ export function alterarStatusColaborador(id, status) {
     return falhar(409, 'Não há licenças livres para reativar este colaborador.', { codigo: 'SEM_LICENCAS' });
   }
   c.status = status;
-  return responder(c, 400);
+  return responder(enriquecerColaborador(c), 400);
 }
 
 export function getProgressoColaborador(id) {
@@ -640,7 +718,10 @@ export function getProgressoColaborador(id) {
     const progresso = Math.max(0, Math.min(100, c.progresso + (i - 1) * 25));
     return { curso: resumoCurso(curso), progresso, status: statusDoProgresso(progresso) };
   });
-  return responder({ colaborador: c, cursos: c.status === 'pendente' ? [] : cursosDaPessoa }, 300);
+  return responder(
+    { colaborador: enriquecerColaborador(c), cursos: c.status === 'pendente' ? [] : cursosDaPessoa },
+    300,
+  );
 }
 
 /** Na API real: GET /admin/colaboradores/exportar (text/csv). Aqui geramos o mesmo CSV no navegador. */

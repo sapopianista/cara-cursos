@@ -93,6 +93,21 @@ public class AulaDAO {
         }
     }
 
+    /** Porcentagem (0–100) de aulas anteriores à avaliação concluídas pelo aluno no curso. */
+    public int progressoAntesDaAvaliacao(int idUsuario, int idCurso) throws SQLException {
+        String sql = "SELECT COUNT(*) AS total, COALESCE(SUM(p.status = 'concluida'), 0) AS concluidas "
+                + "FROM aulas a LEFT JOIN progresso_aulas p ON p.id_aula = a.id AND p.id_usuario = ? "
+                + "WHERE a.id_curso = ? AND a.tipo <> 'avaliacao'";
+        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
+            Jdbc.preencher(ps, idUsuario, idCurso);
+            try (ResultSet rs = ps.executeQuery()) {
+                rs.next();
+                int total = rs.getInt("total");
+                return total == 0 ? 100 : (int) Math.round(rs.getInt("concluidas") * 100.0 / total);
+            }
+        }
+    }
+
     public Continuacao continuar(int idUsuario) throws SQLException {
         String sql = "SELECT a.id, a.ordem, a.titulo, a.tipo, a.duracao_segundos, a.video_url, a.poster_url, "
                 + "a.legenda_url, p.posicao_segundos AS posicao, p.status, "

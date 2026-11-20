@@ -38,7 +38,7 @@ class AdminIntegracaoTest {
         JsonObject pagina = api.get("/admin/colaboradores?porPagina=10", admin);
         assertEquals(10, pagina.getAsJsonArray("itens").size());
         JsonObject primeiro = pagina.getAsJsonArray("itens").get(0).getAsJsonObject();
-        for (String campo : new String[] { "matricula", "progresso", "cursosConcluidos", "status", "ultimoAcesso", "criadoEm" }) {
+        for (String campo : new String[] { "matricula", "papel", "progresso", "cursosConcluidos", "status", "ultimoAcesso", "criadoEm" }) {
             assertTrue(primeiro.has(campo), campo);
         }
         for (JsonElement e : api.get("/admin/colaboradores?status=inativo", admin).getAsJsonArray("itens")) {
@@ -59,6 +59,10 @@ class AdminIntegracaoTest {
                 novo("Outra Ana", "ANA.SILVEIRA@oscorp.com"), admin).getAsJsonObject();
         assertEquals("Já existe um colaborador com este e-mail.",
                 duplicado.getAsJsonObject("campos").get("email").getAsString());
+        JsonObject dominioNaoAutorizado = api.esperar(422, "POST", "/admin/colaboradores",
+                novo("Pessoa Externa", "externa@outrodominio.com"), admin).getAsJsonObject();
+        assertTrue(dominioNaoAutorizado.getAsJsonObject("campos").get("email").getAsString()
+                .contains("oscorp.com"));
         JsonObject invalido = api.esperar(422, "POST", "/admin/colaboradores",
                 Map.of("nome", "", "email", "x", "cargo", "Astronauta", "senhaInicial", "curta"), admin)
                 .getAsJsonObject();

@@ -16,9 +16,6 @@ export default function DataTable({
   className,
 }) {
   const visiveis = colunas.filter((c) => !c.oculto);
-  const rotulos = Object.fromEntries(
-    visiveis.map((c, i) => [`--label-${i + 1}`, `"${c.tituloCurto ?? c.titulo}"`]),
-  );
 
   return (
     <div
@@ -29,7 +26,7 @@ export default function DataTable({
       )}
       aria-busy={atualizando || undefined}
     >
-      <table className="tabela-responsiva w-full text-left text-sm" style={rotulos}>
+      <table className="tabela-responsiva w-full text-left text-sm">
         {legenda && <caption className="sr-only">{legenda}</caption>}
         <thead className="border-b border-line bg-surface2/60 text-xs font-semibold uppercase tracking-wider text-subtle">
           <tr>
@@ -57,6 +54,7 @@ export default function DataTable({
                 {visiveis.map((c) => (
                   <td
                     key={c.id}
+                    data-label={c.tituloOculto ? undefined : (c.tituloCurto ?? c.titulo)}
                     className={cn(
                       'px-5 py-3.5 align-middle',
                       c.alinhar === 'direita' && 'text-right',

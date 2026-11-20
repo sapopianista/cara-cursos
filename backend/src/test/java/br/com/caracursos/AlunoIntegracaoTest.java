@@ -105,6 +105,11 @@ class AlunoIntegracaoTest {
     void concluirTodasAsAulasEmiteCertificado() {
         String bruno = api.entrar("bruno.teixeira@oscorp.com");
         JsonArray aulas = api.get("/cursos/15/sala", bruno).getAsJsonArray("aulas");
+        // Com exigirPresencaMinima ativo, a avaliação final não pode ser concluída antes de 80% das aulas.
+        int ultimaAulaId = aulas.get(aulas.size() - 1).getAsJsonObject().get("id").getAsInt();
+        assertEquals("PRESENCA_MINIMA",
+                api.esperar(409, "POST", "/cursos/15/aulas/" + ultimaAulaId + "/conclusao", null, bruno)
+                        .getAsJsonObject().get("codigo").getAsString());
         int progresso = 0;
         for (JsonElement e : aulas) {
             int id = e.getAsJsonObject().get("id").getAsInt();

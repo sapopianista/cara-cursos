@@ -448,7 +448,11 @@ export default function Colaboradores() {
             {
               rotulo: 'Redefinir senha',
               icone: KeyRound,
-              oculto: !podeRedefinirSenha || c.id === usuario?.id || c.status === 'inativo',
+              oculto:
+                !podeRedefinirSenha ||
+                c.id === usuario?.id ||
+                c.status === 'inativo' ||
+                (usuario?.papel !== 'admin' && c.papel && c.papel !== 'colaborador'),
               onClick: () => setRedefinirSenha(c),
             },
             {

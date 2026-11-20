@@ -158,4 +158,43 @@ describe('acessibilidade (axe)', () => {
     await screen.findByRole('table', { name: 'Lista de colaboradores' });
     expect(await violacoesA11y(container)).toEqual([]);
   });
+
+  it('configurações sem violações', async () => {
+    const { container } = renderizarApp('/admin/configuracoes', { token: TOKEN_ADMIN });
+    await screen.findByLabelText(/Nome fantasia/);
+    expect(await violacoesA11y(container)).toEqual([]);
+  });
+
+  it('suporte sem violações', async () => {
+    const { container } = renderizarApp('/suporte', { token: TOKEN_COLABORADOR });
+    await screen.findByRole('heading', { name: 'Abrir chamado' });
+    expect(await violacoesA11y(container)).toEqual([]);
+  });
+});
+
+describe('configurações e suporte', () => {
+  it('atualiza o nome fantasia na barra superior ao salvar configurações', async () => {
+    const { usuario } = renderizarApp('/admin/configuracoes', { token: TOKEN_ADMIN });
+    const campoNome = await screen.findByLabelText(/Nome fantasia/);
+    await usuario.clear(campoNome);
+    await usuario.type(campoNome, 'Oscorp Labs');
+    await usuario.click(screen.getByRole('button', { name: 'Salvar alterações' }));
+
+    expect(await screen.findByText('Configurações salvas.')).toBeInTheDocument();
+    expect(screen.getAllByRole('banner')[0]).toHaveTextContent('Oscorp Labs');
+  });
+
+  it('abre um chamado de suporte e o exibe na tabela', async () => {
+    const { usuario } = renderizarApp('/suporte', { token: TOKEN_COLABORADOR });
+    await usuario.selectOptions(await screen.findByLabelText(/^Assunto/), 'Problema técnico com vídeo');
+    await usuario.type(screen.getByLabelText(/^Resumo/), 'O vídeo da aula 2 não abre');
+    await usuario.type(
+      screen.getByLabelText(/^Descrição/),
+      'Tentei assistir no navegador e a tela fica preta.',
+    );
+    await usuario.click(screen.getByRole('button', { name: 'Enviar chamado' }));
+
+    const tabela = await screen.findByRole('table', { name: 'Chamados de suporte' });
+    expect(await within(tabela).findByText('O vídeo da aula 2 não abre')).toBeInTheDocument();
+  });
 });

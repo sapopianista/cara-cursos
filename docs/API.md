@@ -6,9 +6,9 @@ em `src/services/mock/handlers.js` é a fonte de verdade executável (os dados d
 Base: `VITE_API_URL` (padrão `/api`). Todas as rotas, exceto `POST /auth/login` e `GET /saude`, exigem
 `Authorization: Bearer <token>`.
 
-**Implementado em `backend/`:** autenticação, aluno, catálogo, trilhas, sala de aula, notificações, visão geral e
-colaboradores. **Ainda no mock:** suporte, gestores e permissões, relatórios, faturamento e configurações
-(ver `MODULOS_SO_NO_MOCK` em `src/services/api.js` e a Etapa 7 de `backend/PLANO.md`).
+**Implementado em `backend/`:** todos os módulos do contrato (autenticação, aluno, catálogo, trilhas, sala de aula,
+notificações, suporte, visão geral, colaboradores, gestores e permissões, relatórios, faturamento e configurações).
+`MODULOS_SO_NO_MOCK` em `src/services/api.js` está vazio.
 
 ## Convenções
 
@@ -252,7 +252,7 @@ chamados; no `gestor`, os chamados de todos os gestores da empresa.
 | GET | `/admin/colaboradores/exportar` | mesmos filtros da listagem | `text/csv` (UTF-8 com BOM, separador `;`) |
 
 ```ts
-Colaborador = { id, matricula, nome, email, cargo, departamento, nivel, progresso,
+Colaborador = { id, matricula, nome, email, cargo, departamento, nivel, papel, progresso,
                 cursosConcluidos, status, ultimoAcesso | null, criadoEm }
 ```
 Regras: e-mail único (`422`, `campos.email`); sem licença livre → `409 SEM_LICENCAS`; não pode desativar a si mesmo.

@@ -11,6 +11,7 @@ import com.google.gson.JsonObject;
 import br.com.caracursos.dao.AtividadeDAO;
 import br.com.caracursos.dao.AulaDAO;
 import br.com.caracursos.dao.CursoDAO;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.MatriculaDAO;
 import br.com.caracursos.dao.TrilhaDAO;
 import br.com.caracursos.http.ApiException;
@@ -49,11 +50,16 @@ public class SalaRecurso {
         JsonObject cursoJson = Json.objeto(curso);
         cursoJson.add("trilha", Json.arvore(new TrilhaDAO(req.conexao()).trilhaDoCurso(idCurso)));
 
+        boolean permitirDownload = new EmpresaDAO(req.conexao()).politicas().permitirDownloadMateriais();
+        List<CursoDAO.Material> materiais = cursos.materiais(idCurso).stream()
+                .map(m -> permitirDownload ? m : new CursoDAO.Material(m.id(), m.nome(), m.tamanhoBytes(), null))
+                .toList();
+
         Map<String, Object> json = new LinkedHashMap<>();
         json.put("curso", cursoJson);
         json.put("aulas", aulas);
         json.put("aulaAtualId", atual == null ? null : atual.id());
-        json.put("materiais", cursos.materiais(idCurso));
+        json.put("materiais", materiais);
         json.put("atividades", new AtividadeDAO(req.conexao()).doCurso(idCurso, usuario));
         return json;
     }

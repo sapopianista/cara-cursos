@@ -8,9 +8,11 @@ import java.util.Map;
 import br.com.caracursos.dao.AulaDAO;
 import br.com.caracursos.dao.CertificadoDAO;
 import br.com.caracursos.dao.CursoDAO;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.MatriculaDAO;
 import br.com.caracursos.dao.NotificacaoDAO;
 import br.com.caracursos.dao.TrilhaDAO;
+import br.com.caracursos.http.ApiException;
 import br.com.caracursos.model.CursoResumo;
 
 /**
@@ -19,19 +21,29 @@ import br.com.caracursos.model.CursoResumo;
  */
 final class Aprendizagem {
 
+    private static final int PRESENCA_MINIMA_AVALIACAO = 80;
+
     private Aprendizagem() {
     }
 
     /** Conclui a aula e devolve o novo progresso do curso (0–100). */
     static int concluirAula(Connection c, int idUsuario, int idCurso, AulaDAO.Aula aula, Instant agora)
             throws SQLException {
+        EmpresaDAO.Politicas politicas = new EmpresaDAO(c).politicas();
         MatriculaDAO matriculas = new MatriculaDAO(c);
         AulaDAO aulas = new AulaDAO(c);
+        if ("avaliacao".equals(aula.tipo()) && politicas.exigirPresencaMinima()
+                && aulas.progressoAntesDaAvaliacao(idUsuario, idCurso) < PRESENCA_MINIMA_AVALIACAO) {
+            throw ApiException.conflito("PRESENCA_MINIMA",
+                    "Assista a pelo menos 80% das aulas do curso antes de concluir a avaliação.");
+        }
         matriculas.garantir(idUsuario, idCurso, agora);
         aulas.concluir(idUsuario, aula.id(), aula.duracaoSegundos(), agora);
         int progresso = aulas.progressoDoCurso(idUsuario, idCurso);
         matriculas.atualizarProgresso(idUsuario, idCurso, progresso, agora);
-        if (progresso >= 100) emitirCertificados(c, idUsuario, idCurso, agora);
+        if (progresso >= 100 && politicas.certificacaoAutomatica()) {
+            emitirCertificados(c, idUsuario, idCurso, agora);
+        }
         return progresso;
     }
 

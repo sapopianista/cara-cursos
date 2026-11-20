@@ -5,7 +5,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 import br.com.caracursos.http.Json;
 import br.com.caracursos.model.Curso;
@@ -67,18 +69,23 @@ public class TrilhaDAO {
     }
 
     public List<Nivel> niveis() throws SQLException {
-        List<Nivel> lista = new ArrayList<>();
+        Map<Integer, Nivel> porId = new LinkedHashMap<>();
         String sql = "SELECT id, ordem, titulo, perfil, competencias FROM niveis ORDER BY ordem";
         try (PreparedStatement ps = conexao.prepareStatement(sql); ResultSet rs = ps.executeQuery()) {
             while (rs.next()) {
-                lista.add(new Nivel(rs.getInt("id"), rs.getInt("ordem"), rs.getString("titulo"),
+                int id = rs.getInt("id");
+                porId.put(id, new Nivel(id, rs.getInt("ordem"), rs.getString("titulo"),
                         rs.getString("perfil"), Json.listaDeTexto(rs.getString("competencias")), new ArrayList<>()));
             }
         }
-        for (Nivel n : lista) {
-            n.cursoIds().addAll(ids("SELECT id_curso FROM nivel_cursos WHERE id_nivel = ? ORDER BY ordem", n.id()));
+        String sqlCursos = "SELECT id_nivel, id_curso FROM nivel_cursos ORDER BY id_nivel, ordem";
+        try (PreparedStatement ps = conexao.prepareStatement(sqlCursos); ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                Nivel n = porId.get(rs.getInt("id_nivel"));
+                if (n != null) n.cursoIds().add(rs.getInt("id_curso"));
+            }
         }
-        return lista;
+        return List.copyOf(porId.values());
     }
 
     private List<Integer> ids(String sql, int id) throws SQLException {

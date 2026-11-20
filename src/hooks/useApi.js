@@ -26,12 +26,17 @@ export default function useApi(funcao, dependencias = []) {
 
   useEffect(() => {
     let ativo = true;
+    const controlador = new AbortController();
     funcaoRef
-      .current()
+      .current(controlador.signal)
       .then((dados) => ativo && setEstado({ dados, erro: null, chave }))
-      .catch((erro) => ativo && setEstado((atual) => ({ ...atual, erro, chave })));
+      .catch((erro) => {
+        if (!ativo || controlador.signal.aborted) return;
+        setEstado((atual) => ({ ...atual, erro, chave }));
+      });
     return () => {
       ativo = false;
+      controlador.abort();
     };
   }, [chave]);
 

@@ -16,8 +16,8 @@ public class ColaboradorDAO {
 
     /** Formato {@code Colaborador} do contrato. */
     public record Colaborador(int id, String matricula, String nome, String email, String cargo, String departamento,
-                              int nivel, int progresso, int cursosConcluidos, String status, Instant ultimoAcesso,
-                              Instant criadoEm) {
+                              int nivel, String papel, int progresso, int cursosConcluidos, String status,
+                              Instant ultimoAcesso, Instant criadoEm) {
     }
 
     /** Filtros de {@code GET /admin/colaboradores}. {@code status} "todos" ou nulo = sem filtro. */
@@ -29,12 +29,12 @@ public class ColaboradorDAO {
 
     // Progresso do colaborador = média do progresso nas matrículas (0 se não tem nenhuma).
     private static final String SELECT = "SELECT u.id, u.matricula, u.nome, u.email, u.cargo, u.departamento, "
-            + "u.nivel, u.status, u.ultimo_acesso, u.criado_em, "
+            + "u.nivel, u.tipo_perfil, u.status, u.ultimo_acesso, u.criado_em, "
             + "COALESCE(ROUND(AVG(m.progresso)), 0) AS progresso, "
             + "COALESCE(SUM(m.progresso >= 100), 0) AS concluidos "
             + "FROM usuarios u LEFT JOIN matriculas m ON m.id_usuario = u.id ";
     private static final String AGRUPAR = " GROUP BY u.id, u.matricula, u.nome, u.email, u.cargo, u.departamento, "
-            + "u.nivel, u.status, u.ultimo_acesso, u.criado_em";
+            + "u.nivel, u.tipo_perfil, u.status, u.ultimo_acesso, u.criado_em";
 
     private final Connection conexao;
 
@@ -164,8 +164,8 @@ public class ColaboradorDAO {
                 while (rs.next()) {
                     lista.add(new Colaborador(rs.getInt("id"), rs.getString("matricula"), rs.getString("nome"),
                             rs.getString("email"), rs.getString("cargo"), rs.getString("departamento"),
-                            rs.getInt("nivel"), rs.getInt("progresso"), rs.getInt("concluidos"),
-                            rs.getString("status"), Jdbc.instante(rs, "ultimo_acesso"),
+                            rs.getInt("nivel"), rs.getString("tipo_perfil"), rs.getInt("progresso"),
+                            rs.getInt("concluidos"), rs.getString("status"), Jdbc.instante(rs, "ultimo_acesso"),
                             Jdbc.instante(rs, "criado_em")));
                 }
             }

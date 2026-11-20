@@ -14,6 +14,7 @@ import java.util.regex.Pattern;
 import br.com.caracursos.dao.AuditoriaDAO;
 import br.com.caracursos.dao.ColaboradorDAO;
 import br.com.caracursos.dao.ColaboradorDAO.Colaborador;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.MatriculaDAO;
 import br.com.caracursos.dao.SessaoDAO;
 import br.com.caracursos.dao.UsuarioDAO;
@@ -31,12 +32,12 @@ import br.com.caracursos.util.Relogio;
 /** Painel da empresa: {@code /admin/colaboradores}. */
 public class ColaboradorRecurso {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
     private static final List<Integer> NIVEIS = List.of(1, 2, 3, 4);
     private static final Map<String, String> STATUS_CSV = Map.of(
             "ativo", "Ativo", "pendente", "Aguardando 1º acesso", "inativo", "Inativo");
     private static final DateTimeFormatter DATA_HORA_CSV =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(Relogio.FUSO_EMPRESA);
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
     public void registrar(Roteador r) {
         Permissao p = Permissao.ADMIN_COLABORADORES;
@@ -97,8 +98,14 @@ public class ColaboradorRecurso {
         else if (nome.length() > 120) campos.put("nome", "Use no máximo 120 caracteres.");
         if (email == null || email.length() > 160 || !EMAIL.matcher(email).matches()) {
             campos.put("email", "Informe um e-mail válido.");
-        } else if (new UsuarioDAO(c).emailEmUso(email, idAtual)) {
-            campos.put("email", "Já existe um colaborador com este e-mail.");
+        } else {
+            List<String> dominios = new EmpresaDAO(c).dominiosAutorizados();
+            String dominio = email.substring(email.indexOf('@') + 1);
+            if (!dominios.isEmpty() && !dominios.contains(dominio)) {
+                campos.put("email", "Use um e-mail dos domínios autorizados (" + String.join(", ", dominios) + ").");
+            } else if (new UsuarioDAO(c).emailEmUso(email, idAtual)) {
+                campos.put("email", "Já existe um colaborador com este e-mail.");
+            }
         }
         if (cargo == null || !dao.cargos().contains(cargo)) campos.put("cargo", "Escolha um cargo.");
         if (departamento == null || !dao.departamentos().contains(departamento)) {
@@ -133,7 +140,7 @@ public class ColaboradorRecurso {
         try {
             int id = req.transacao(c -> {
                 UsuarioDAO usuarios = new UsuarioDAO(c);
-                if (usuarios.contarLicencasEmUso() >= usuarios.licencasContratadas()) {
+                if (!usuarios.temLicencaLivreTravando()) {
                     throw semLicencas("Todas as licenças estão em uso. Contrate mais licenças em Plano e faturamento.");
                 }
                 Usuario u = new Usuario(d.nome(), d.email(), Senhas.gerar(senha), Usuario.TipoPerfil.COLABORADOR);
@@ -186,7 +193,7 @@ public class ColaboradorRecurso {
         req.transacao(c -> {
             UsuarioDAO usuarios = new UsuarioDAO(c);
             boolean reativando = u.getStatus() == Usuario.Status.INATIVO && novo != Usuario.Status.INATIVO;
-            if (reativando && usuarios.contarLicencasEmUso() >= usuarios.licencasContratadas()) {
+            if (reativando && !usuarios.temLicencaLivreTravando()) {
                 throw semLicencas("Não há licenças livres para reativar este colaborador.");
             }
             usuarios.atualizarStatus(u.getId(), novo);
@@ -238,14 +245,15 @@ public class ColaboradorRecurso {
 
     private Object exportar(Requisicao req) throws SQLException {
         List<Colaborador> lista = new ColaboradorDAO(req.conexao()).listarTodos(filtro(req));
+        DateTimeFormatter fmt = DATA_HORA_CSV.withZone(Relogio.fuso());
         Csv csv = new Csv("Matrícula", "Nome", "E-mail", "Cargo", "Departamento", "Nível", "Progresso (%)",
                 "Último acesso", "Status");
         for (Colaborador c : lista) {
             csv.linha(c.matricula(), c.nome(), c.email(), c.cargo(), c.departamento(), c.nivel(), c.progresso(),
-                    c.ultimoAcesso() == null ? "" : DATA_HORA_CSV.format(c.ultimoAcesso()),
+                    c.ultimoAcesso() == null ? "" : fmt.format(c.ultimoAcesso()),
                     STATUS_CSV.getOrDefault(c.status(), c.status()));
         }
-        String nome = "colaboradores-" + LocalDate.now(Relogio.FUSO_EMPRESA) + ".csv";
+        String nome = "colaboradores-" + LocalDate.now(Relogio.fuso()) + ".csv";
         return new Arquivo(nome, "text/csv; charset=UTF-8", csv.bytes());
     }
 }

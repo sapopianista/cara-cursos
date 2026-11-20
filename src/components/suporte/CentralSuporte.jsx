@@ -61,7 +61,7 @@ function FormularioChamado({ escopo, assuntos, cursos, contato, onCriado }) {
           value={valores.titulo}
           onChange={alterar('titulo')}
           erro={errosCampos.titulo}
-          maxLength={120}
+          maxLength={150}
         />
         {cursos.length > 0 && (
           <CampoSelecao

@@ -34,10 +34,13 @@ public class ApiServlet extends HttpServlet {
             if (valores.length > 0) parametros.put(nome, valores[0]);
         });
         String caminho = req.getPathInfo() == null ? "/" : req.getPathInfo();
-        String corpo = new String(req.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
+        byte[] bytes = req.getInputStream().readNBytes(Api.CORPO_MAXIMO_BYTES + 1);
+        String corpo = bytes.length > Api.CORPO_MAXIMO_BYTES
+                ? new String(bytes, StandardCharsets.ISO_8859_1)
+                : new String(bytes, StandardCharsets.UTF_8);
 
         Api.Resposta resposta = api.processar(new Api.Pedido(
-                req.getMethod(), caminho, parametros, corpo, req.getHeader("Authorization")));
+                req.getMethod(), caminho, parametros, corpo, req.getHeader("Authorization"), req.getRemoteAddr()));
 
         resp.setStatus(resposta.status());
         resp.setHeader("Cache-Control", "no-store");

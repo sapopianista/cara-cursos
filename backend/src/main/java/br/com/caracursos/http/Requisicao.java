@@ -27,15 +27,22 @@ public final class Requisicao implements AutoCloseable {
     private final Map<String, String> parametros;
     private final String corpoBruto;
     private final String token;
+    private final String ip;
     private Usuario usuario;
     private JsonObject corpo;
     private Connection conexao;
 
     Requisicao(Map<String, String> variaveis, Map<String, String> parametros, String corpoBruto, String token) {
+        this(variaveis, parametros, corpoBruto, token, null);
+    }
+
+    Requisicao(Map<String, String> variaveis, Map<String, String> parametros, String corpoBruto, String token,
+               String ip) {
         this.variaveis = variaveis;
         this.parametros = parametros;
         this.corpoBruto = corpoBruto;
         this.token = token;
+        this.ip = ip;
     }
 
     // ---- conexão ---------------------------------------------------------
@@ -84,6 +91,10 @@ public final class Requisicao implements AutoCloseable {
 
     public String token() {
         return token;
+    }
+
+    public String ip() {
+        return ip;
     }
 
     // ---- caminho e query -------------------------------------------------

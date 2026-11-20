@@ -5,6 +5,11 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+
+import br.com.caracursos.util.Relogio;
 
 /** Dados e configurações da empresa (tabela {@code empresa}, linha única id = 1). */
 public class EmpresaDAO {
@@ -33,13 +38,32 @@ public class EmpresaDAO {
                 + "FROM empresa WHERE id = 1";
         try (Statement st = conexao.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             if (!rs.next()) return null;
+            String fuso = rs.getString("fuso_horario");
+            Relogio.definirFuso(fuso);
             return new Configuracoes(
                     new Organizacao(rs.getString("nome_fantasia"), rs.getString("razao_social"), rs.getString("cnpj"),
-                            rs.getString("email_notificacao"), rs.getString("fuso_horario"),
+                            rs.getString("email_notificacao"), fuso,
                             rs.getString("dominios_autorizados")),
                     new Politicas(rs.getBoolean("exigir_presenca_minima"), rs.getBoolean("certificacao_automatica"),
                             rs.getBoolean("permitir_download_materiais")));
         }
+    }
+
+    public Politicas politicas() throws SQLException {
+        Configuracoes c = configuracoes();
+        return c == null ? new Politicas(true, true, true) : c.politicas();
+    }
+
+    /** Lista de domínios autorizados (em minúsculas), ou lista vazia se qualquer domínio for aceito. */
+    public List<String> dominiosAutorizados() throws SQLException {
+        Configuracoes c = configuracoes();
+        if (c == null || c.organizacao().dominiosAutorizados() == null || c.organizacao().dominiosAutorizados().isBlank()) {
+            return List.of();
+        }
+        return Arrays.stream(c.organizacao().dominiosAutorizados().split(","))
+                .map(d -> d.trim().toLowerCase(Locale.ROOT))
+                .filter(d -> !d.isEmpty())
+                .toList();
     }
 
     public void salvar(Configuracoes c) throws SQLException {
@@ -54,5 +78,6 @@ public class EmpresaDAO {
                     p.permitirDownloadMateriais());
             ps.executeUpdate();
         }
+        Relogio.definirFuso(o.fusoHorario());
     }
 }

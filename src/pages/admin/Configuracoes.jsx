@@ -3,6 +3,7 @@ import { useBlocker } from 'react-router-dom';
 import useApi from '../../hooks/useApi';
 import useMutacao from '../../hooks/useMutacao';
 import { getConfiguracoes, salvarConfiguracoes } from '../../services/api';
+import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { FUSOS_HORARIOS } from '../../lib/rotulos';
 import { cnpj, email, mascararCnpj, obrigatorio, validar } from '../../lib/validacao';
@@ -208,7 +209,15 @@ function Formulario({ inicial, onSalvo }) {
 }
 
 export default function Configuracoes() {
+  const { usuario, atualizarUsuario } = useAuth();
   const { dados, carregando, erro, recarregar, setDados } = useApi(getConfiguracoes);
+
+  const aoSalvar = (salvo) => {
+    setDados(salvo);
+    if (usuario?.empresa && salvo?.organizacao?.nomeFantasia) {
+      atualizarUsuario({ empresa: { ...usuario.empresa, nome: salvo.organizacao.nomeFantasia } });
+    }
+  };
 
   return (
     <Pagina
@@ -222,7 +231,7 @@ export default function Configuracoes() {
         <ErroCarregamento erro={erro} onTentarNovamente={recarregar} />
       ) : (
         // `key` reinicia o formulário com os valores salvos após cada gravação.
-        <Formulario key={JSON.stringify(dados)} inicial={dados} onSalvo={setDados} />
+        <Formulario key={JSON.stringify(dados)} inicial={dados} onSalvo={aoSalvar} />
       )}
     </Pagina>
   );
