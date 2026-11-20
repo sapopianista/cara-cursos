@@ -42,9 +42,9 @@ public class FaturamentoRecurso {
 
     private static final Locale PT_BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATA =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(Relogio.FUSO_EMPRESA);
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
     private static final DateTimeFormatter MES =
-            DateTimeFormatter.ofPattern("MMMM 'de' yyyy", PT_BR).withZone(Relogio.FUSO_EMPRESA);
+            DateTimeFormatter.ofPattern("MMMM 'de' yyyy", PT_BR);
 
     public void registrar(Roteador r) {
         Permissao p = Permissao.ADMIN_FATURAMENTO;
@@ -87,10 +87,10 @@ public class FaturamentoRecurso {
 
     /** Próximo dia 15 depois de hoje (no fuso da empresa), à meia-noite. */
     private static Instant proximoVencimento() {
-        LocalDate hoje = LocalDate.now(Relogio.FUSO_EMPRESA);
+        LocalDate hoje = LocalDate.now(Relogio.fuso());
         LocalDate vencimento = hoje.withDayOfMonth(DIA_VENCIMENTO);
         if (!vencimento.isAfter(hoje)) vencimento = vencimento.plusMonths(1);
-        return vencimento.atStartOfDay(Relogio.FUSO_EMPRESA).toInstant();
+        return vencimento.atStartOfDay(Relogio.fuso()).toInstant();
     }
 
     private Object contratarLicencas(Requisicao req) throws SQLException {
@@ -128,11 +128,13 @@ public class FaturamentoRecurso {
             case "vencida" -> "Vencida";
             default -> "Em aberto";
         };
+        DateTimeFormatter dataFmt = DATA.withZone(Relogio.fuso());
+        DateTimeFormatter mesFmt = MES.withZone(Relogio.fuso());
         List<List<String>> linhas = List.of(
-                List.of("Licenças " + contrato.plano(), MES.format(f.competencia()), String.valueOf(f.licencas()),
+                List.of("Licenças " + contrato.plano(), mesFmt.format(f.competencia()), String.valueOf(f.licencas()),
                         moeda.format(f.valorCentavos() / 100.0 / Math.max(1, f.licencas())),
                         moeda.format(f.valorCentavos() / 100.0)),
-                List.of("Emitida em " + DATA.format(f.emitidaEm()) + " · Vencimento " + DATA.format(f.vencimento())
+                List.of("Emitida em " + dataFmt.format(f.emitidaEm()) + " · Vencimento " + dataFmt.format(f.vencimento())
                         + " · " + status, "", "", "", ""),
                 List.of("Referência da nota fiscal: " + f.notaFiscal() + " · " + contrato.metodoPagamento(),
                         "", "", "", ""));

@@ -57,9 +57,9 @@ public class RelatorioRecurso {
 
     private static final Locale PT_BR = Locale.of("pt", "BR");
     private static final DateTimeFormatter DATA_HORA =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm").withZone(Relogio.FUSO_EMPRESA);
+            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
     private static final DateTimeFormatter DATA =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy").withZone(Relogio.FUSO_EMPRESA);
+            DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
     public void registrar(Roteador r) {
         Permissao p = Permissao.ADMIN_RELATORIOS;
@@ -112,7 +112,7 @@ public class RelatorioRecurso {
         Instant desde = agora.minus(Duration.ofDays(DIAS_PERIODO.get(periodo)));
         String subtitulo = ROTULO_PERIODO.get(periodo) + " · "
                 + (departamento == null ? "Todos os departamentos" : departamento)
-                + " · Gerado em " + DATA_HORA.format(agora) + " por " + req.usuario().getNome();
+                + " · Gerado em " + dataHora(agora) + " por " + req.usuario().getNome();
         RelatorioDAO dao = new RelatorioDAO(req.conexao());
         byte[] conteudo = switch (modelo.id()) {
             case "engajamento" -> engajamento(dao, desde, departamento);
@@ -123,7 +123,7 @@ public class RelatorioRecurso {
             case "conformidade" -> conformidade(dao, departamento);
             default -> throw new IllegalStateException("Modelo sem gerador: " + modelo.id());
         };
-        String nome = modelo.id() + "-" + LocalDate.ofInstant(agora, Relogio.FUSO_EMPRESA) + "." + modelo.formato();
+        String nome = modelo.id() + "-" + LocalDate.ofInstant(agora, Relogio.fuso()) + "." + modelo.formato();
         int id = dao.salvar(modelo.id(), periodo, departamento, req.idUsuario(), req.usuario().getNome(), agora,
                 new RelatorioDAO.Arquivo(nome, conteudo));
         return json(dao.buscar(id));
@@ -139,7 +139,7 @@ public class RelatorioRecurso {
     // ---- geradores ---------------------------------------------------------
 
     private static String dataHora(Instant instante) {
-        return instante == null ? "" : DATA_HORA.format(instante);
+        return instante == null ? "" : DATA_HORA.withZone(Relogio.fuso()).format(instante);
     }
 
     private static String percentual(int parte, int total) {
@@ -214,13 +214,14 @@ public class RelatorioRecurso {
     }
 
     private static byte[] conformidade(RelatorioDAO dao, String departamento) throws SQLException {
+        DateTimeFormatter dataFmt = DATA.withZone(Relogio.fuso());
         Csv csv = new Csv("Matrícula", "Nome", "Departamento", "Treinamento obrigatório", "Situação", "Progresso (%)",
                 "Concluído em");
         for (RelatorioDAO.Conformidade c : dao.conformidade(departamento)) {
             String situacao = c.progresso() == null ? "Não iniciado"
                     : c.progresso() >= 100 ? "Concluído" : "Em andamento";
             csv.linha(c.matricula(), c.nome(), c.departamento(), c.curso(), situacao,
-                    c.progresso() == null ? 0 : c.progresso(), c.concluidoEm() == null ? "" : DATA.format(c.concluidoEm()));
+                    c.progresso() == null ? 0 : c.progresso(), c.concluidoEm() == null ? "" : dataFmt.format(c.concluidoEm()));
         }
         return csv.bytes();
     }

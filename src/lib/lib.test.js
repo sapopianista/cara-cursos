@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { duracao, moeda, plural, tempoVideo, diasAte } from './formatadores';
 import { cnpjValido, emailValido, mascararCnpj, obrigatorio, email, validar } from './validacao';
+import { gerarCsv } from './download';
 import { paginasVisiveis } from '../components/ui/Pagination';
 
 const normalizarEspacos = (t) => t.replace(/\s/g, ' ');
@@ -66,5 +67,29 @@ describe('paginação', () => {
   it('resume com reticências mantendo vizinhas', () => {
     expect(paginasVisiveis(7, 15)).toEqual([1, '…', 6, 7, 8, '…', 15]);
     expect(paginasVisiveis(1, 15)).toEqual([1, 2, 3, '…', 15]);
+  });
+});
+
+describe('gerarCsv', () => {
+  it('escapa separadores, aspas e evita injeção de fórmulas no Excel', async () => {
+    const blob = gerarCsv(
+      [
+        { nome: 'Ana; Clara', obs: '=SOMA(A1)' },
+        { nome: 'Rui', obs: 'diz "oi"' },
+      ],
+      [
+        { titulo: 'Nome', valor: (l) => l.nome },
+        { titulo: 'Obs', valor: (l) => l.obs },
+      ],
+    );
+    const buffer = await new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result);
+      reader.onerror = reject;
+      reader.readAsArrayBuffer(blob);
+    });
+    const texto = new TextDecoder('utf-8').decode(buffer);
+    expect(texto).toContain('"Ana; Clara";\'=SOMA(A1)\r\n');
+    expect(texto).toContain('Rui;"diz ""oi"""');
   });
 });

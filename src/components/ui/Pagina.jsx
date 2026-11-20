@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft } from 'lucide-react';
 import { cn } from '../../lib/cn';
@@ -59,12 +60,8 @@ export default function Pagina({
  * Seção com título h2, descrição e ação opcional ("Ver todos").
  */
 export function Secao({ titulo, descricao, acao, tituloOculto = false, children, className, id }) {
-  const idTitulo =
-    id ??
-    `secao-${String(titulo)
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[^\w]+/g, '-')}`;
+  const idGerado = useId();
+  const idTitulo = id ?? idGerado;
   return (
     <section aria-labelledby={idTitulo} className={cn('space-y-4', className)}>
       <div className={cn('flex items-end justify-between gap-4', tituloOculto && 'sr-only')}>

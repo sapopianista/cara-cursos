@@ -30,7 +30,7 @@ import br.com.caracursos.util.Cnpj;
  */
 public class ConfiguracaoRecurso {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$");
+    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
     private static final Pattern DOMINIO =
             Pattern.compile("^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$");
     /** Os mesmos de {@code FUSOS_HORARIOS} (src/lib/rotulos.js). */

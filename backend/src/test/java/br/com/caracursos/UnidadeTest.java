@@ -16,6 +16,7 @@ import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 import br.com.caracursos.dao.CertificadoDAO;
+import br.com.caracursos.http.Api;
 import br.com.caracursos.http.Json;
 import br.com.caracursos.http.Pagina;
 import br.com.caracursos.seguranca.LimiteLogin;
@@ -137,5 +138,29 @@ class UnidadeTest {
         String primeiraEntrada = texto.substring(inicioXref).split("\n")[3];
         int posicaoObjeto1 = Integer.parseInt(primeiraEntrada.substring(0, 10));
         assertTrue(texto.startsWith("1 0 obj", posicaoObjeto1));
+
+        // Nomes muito longos reduzem a fonte para caber dentro da moldura.
+        byte[] pdfLongo = CertificadoPdf.gerar("A".repeat(90), c, "Oscorp");
+        String textoLongo = new String(pdfLongo, StandardCharsets.ISO_8859_1);
+        assertFalse(textoLongo.contains("/F2 30.0 Tf 56.0 315.0 Td (" + "A".repeat(90) + ")"));
+    }
+
+    @Test
+    void limiteDeLoginNaoUltrapassaOTetoDeMemoria() {
+        LimiteLogin limite = new LimiteLogin();
+        Instant t0 = Instant.parse("2026-01-01T12:00:00Z");
+        for (int i = 0; i < LimiteLogin.LIMPAR_ACIMA_DE + 50; i++) {
+            limite.registrarFalha("u" + i + "@x.com", t0.plusMillis(i));
+        }
+        assertEquals(LimiteLogin.LIMPAR_ACIMA_DE, limite.tamanho());
+    }
+
+    @Test
+    void corpoAcimaDoLimiteRetorna413() {
+        Api api = new Api();
+        String gigante = "{\"identificador\":\"" + "a".repeat(Api.CORPO_MAXIMO_BYTES + 10) + "\"}";
+        Api.Resposta r = api.processar(new Api.Pedido("POST", "/auth/login", Map.of(), gigante, null));
+        assertEquals(413, r.status());
+        assertTrue(r.texto().contains("CORPO_MUITO_GRANDE"));
     }
 }

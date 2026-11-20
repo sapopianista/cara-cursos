@@ -11,9 +11,10 @@ export function salvarBlob(blob, nomeArquivo) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-/** Escapa um valor para CSV (aspas duplas, separador e quebras de linha). */
+/** Escapa um valor para CSV (aspas duplas, separador, quebras de linha e injeção de fórmulas). */
 const celulaCsv = (valor) => {
-  const texto = valor == null ? '' : String(valor);
+  let texto = valor == null ? '' : String(valor);
+  if (texto && '=+-@'.includes(texto[0])) texto = `'${texto}`;
   return /[",;\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;
 };
 

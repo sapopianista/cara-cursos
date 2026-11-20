@@ -99,7 +99,8 @@ CREATE TABLE sessoes (
   revogada_em DATETIME     NULL,
   CONSTRAINT pk_sessoes PRIMARY KEY (token_hash),
   CONSTRAINT fk_sessoes_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
-  INDEX ix_sessoes_criada_em (criada_em)
+  INDEX ix_sessoes_criada_em (criada_em),
+  INDEX ix_sessoes_usuario_criada (id_usuario, criada_em)
 ) ENGINE = InnoDB;
 
 -- ---------------------------------------------------------------------
@@ -280,7 +281,8 @@ CREATE TABLE progresso_aulas (
   CONSTRAINT pk_progresso_aulas PRIMARY KEY (id_usuario, id_aula),
   CONSTRAINT fk_progresso_aulas_usuario FOREIGN KEY (id_usuario) REFERENCES usuarios (id) ON DELETE CASCADE,
   CONSTRAINT fk_progresso_aulas_aula FOREIGN KEY (id_aula) REFERENCES aulas (id) ON DELETE CASCADE,
-  INDEX ix_progresso_aulas_atualizado (id_usuario, atualizado_em)
+  INDEX ix_progresso_aulas_atualizado (id_usuario, atualizado_em),
+  INDEX ix_progresso_aulas_concluida (id_usuario, status, concluida_em)
 ) ENGINE = InnoDB;
 
 CREATE TABLE entregas (

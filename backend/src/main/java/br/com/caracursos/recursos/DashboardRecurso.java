@@ -44,7 +44,7 @@ public class DashboardRecurso {
         String periodo = pedido != null && DIAS_PERIODO.containsKey(pedido) ? pedido : "7dias";
         Instant fim = Relogio.agora();
         Instant inicio = fim.minus(Duration.ofDays(DIAS_PERIODO.get(periodo)));
-        Instant inicioDoDia = LocalDate.now(Relogio.FUSO_EMPRESA).atStartOfDay(Relogio.FUSO_EMPRESA).toInstant();
+        Instant inicioDoDia = LocalDate.now(Relogio.fuso()).atStartOfDay(Relogio.fuso()).toInstant();
 
         ColaboradorDAO colaboradores = new ColaboradorDAO(c);
         int ativos = colaboradores.contarAtivos();
@@ -81,7 +81,7 @@ public class DashboardRecurso {
     }
 
     private static Map<String, Object> sessoesPorTurno(Connection c, Instant inicio, Instant agora) throws SQLException {
-        int deslocamento = Relogio.FUSO_EMPRESA.getRules().getOffset(agora).getTotalSeconds() / 3600;
+        int deslocamento = Relogio.fuso().getRules().getOffset(agora).getTotalSeconds() / 3600;
         Map<Integer, Integer> porHora = new SessaoDAO(c).contarPorHora(inicio, deslocamento);
         int[] contagens = new int[TURNOS.size()];
         porHora.forEach((hora, total) -> {

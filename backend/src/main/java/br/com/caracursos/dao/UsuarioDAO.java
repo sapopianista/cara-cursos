@@ -117,6 +117,23 @@ public class UsuarioDAO {
         }
     }
 
+    /**
+     * Confere se há licença livre travando a linha da empresa até o fim da transação,
+     * para dois cadastros ou reativações simultâneas não ultrapassarem o limite.
+     */
+    public boolean temLicencaLivreTravando() throws SQLException {
+        int contratadas;
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT licencas_contratadas FROM empresa WHERE id = 1 FOR UPDATE")) {
+            contratadas = rs.next() ? rs.getInt(1) : 0;
+        }
+        try (Statement st = conexao.createStatement();
+             ResultSet rs = st.executeQuery("SELECT COUNT(*) FROM usuarios WHERE status <> 'inativo' FOR SHARE")) {
+            rs.next();
+            return rs.getInt(1) < contratadas;
+        }
+    }
+
     private Usuario buscarUm(String sql, Object... valores) throws SQLException {
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {
             Jdbc.preencher(ps, valores);

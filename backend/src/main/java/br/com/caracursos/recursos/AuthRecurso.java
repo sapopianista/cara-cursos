@@ -45,8 +45,9 @@ public class AuthRecurso {
         if (!campos.isEmpty()) throw ApiException.validacao(campos);
 
         String email = identificador.toLowerCase(Locale.ROOT);
+        String chaveLimite = req.ip() == null || req.ip().isBlank() ? email : req.ip() + "|" + email;
         Instant agora = Relogio.agora();
-        Duration espera = limite.bloqueio(email, agora);
+        Duration espera = limite.bloqueio(chaveLimite, agora);
         if (!espera.isZero()) {
             long minutos = Math.max(1, (espera.getSeconds() + 59) / 60);
             throw new ApiException(429, "MUITAS_TENTATIVAS", "Muitas tentativas de login. Tente novamente em "
@@ -59,10 +60,10 @@ public class AuthRecurso {
         // Verifica a senha mesmo quando o e-mail não existe (tempo de resposta igual).
         boolean senhaConfere = Senhas.verificar(senha, usuario == null ? null : usuario.getSenha());
         if (usuario == null || !senhaConfere) {
-            limite.registrarFalha(email, agora);
+            limite.registrarFalha(chaveLimite, agora);
             throw ApiException.naoAutorizado("CREDENCIAIS_INVALIDAS", "E-mail ou senha incorretos.");
         }
-        limite.limpar(email);
+        limite.limpar(chaveLimite);
         if (usuario.getStatus() == Usuario.Status.INATIVO) {
             throw ApiException.proibido("Seu acesso está desativado. Fale com o RH da sua empresa.");
         }
@@ -86,7 +87,11 @@ public class AuthRecurso {
 
     private Object sessaoAtual(Requisicao req) throws SQLException {
         Usuario u = req.usuario();
-        new UsuarioDAO(req.conexao()).registrarAcesso(u.getId(), Relogio.agora());
+        Instant agora = Relogio.agora();
+        if (u.getUltimoAcesso() == null || Duration.between(u.getUltimoAcesso(), agora).toMinutes() >= 5) {
+            new UsuarioDAO(req.conexao()).registrarAcesso(u.getId(), agora);
+            u.setUltimoAcesso(agora);
+        }
         return usuarioJson(u, req.conexao());
     }
 
