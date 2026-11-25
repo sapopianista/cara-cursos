@@ -2,13 +2,16 @@ package br.com.caracursos.recursos;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import br.com.caracursos.dao.ColaboradorDAO;
 import br.com.caracursos.dao.CursoDAO;
@@ -16,16 +19,21 @@ import br.com.caracursos.dao.SessaoDAO;
 import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
 import br.com.caracursos.seguranca.Permissao;
+import br.com.caracursos.util.Periodo;
 import br.com.caracursos.util.Relogio;
 
 /** Painel da empresa: {@code GET /admin/dashboard?periodo=7dias|30dias|trimestre}. */
 public class DashboardRecurso {
 
-    private static final Map<String, Integer> DIAS_PERIODO = Map.of("7dias", 7, "30dias", 30, "trimestre", 90);
+    /** Períodos que o painel aceita (o relatório aceita também "ano"). */
+    private static final Set<Periodo> PERIODOS = EnumSet.of(Periodo.SETE_DIAS, Periodo.TRINTA_DIAS, Periodo.TRIMESTRE);
     private static final int META_ENGAJAMENTO = 70;
 
     /** Turnos na ordem em que o gráfico os exibe. {@code de} inclusivo, {@code ate} exclusivo. */
     private record Turno(String nome, String intervalo, int de, int ate) {
+        boolean contem(int hora) {
+            return hora >= de && hora < ate;
+        }
     }
 
     private static final List<Turno> TURNOS = List.of(
@@ -40,10 +48,10 @@ public class DashboardRecurso {
 
     private Object painel(Requisicao req) throws SQLException {
         Connection c = req.conexao();
-        String pedido = req.parametro("periodo");
-        String periodo = pedido != null && DIAS_PERIODO.containsKey(pedido) ? pedido : "7dias";
+        Periodo pedido = Periodo.deId(req.parametro("periodo"));
+        Periodo periodo = PERIODOS.contains(pedido) ? pedido : Periodo.SETE_DIAS;
         Instant fim = Relogio.agora();
-        Instant inicio = fim.minus(Duration.ofDays(DIAS_PERIODO.get(periodo)));
+        Instant inicio = periodo.desde(fim);
         Instant inicioDoDia = LocalDate.now(Relogio.fuso()).atStartOfDay(Relogio.fuso()).toInstant();
 
         ColaboradorDAO colaboradores = new ColaboradorDAO(c);
@@ -73,7 +81,7 @@ public class DashboardRecurso {
         atividade.put("colaboradores", recentes);
 
         Map<String, Object> json = new LinkedHashMap<>();
-        json.put("periodo", Map.of("id", periodo, "inicio", inicio, "fim", fim));
+        json.put("periodo", Map.of("id", periodo.id(), "inicio", inicio, "fim", fim));
         json.put("indicadores", indicadores);
         json.put("atividadeRecente", atividade);
         json.put("sessoesPorTurno", sessoesPorTurno(c, inicio, fim));
@@ -83,14 +91,14 @@ public class DashboardRecurso {
     private static Map<String, Object> sessoesPorTurno(Connection c, Instant inicio, Instant agora) throws SQLException {
         int deslocamento = Relogio.fuso().getRules().getOffset(agora).getTotalSeconds() / 3600;
         Map<Integer, Integer> porHora = new SessaoDAO(c).contarPorHora(inicio, deslocamento);
-        int[] contagens = new int[TURNOS.size()];
-        porHora.forEach((hora, total) -> {
-            for (int i = 0; i < TURNOS.size(); i++) {
-                if (hora >= TURNOS.get(i).de() && hora < TURNOS.get(i).ate()) contagens[i] += total;
-            }
-        });
-        int total = 0;
-        for (int n : contagens) total += n;
+        // Agrupa as horas do dia por turno e soma as sessões de cada grupo.
+        Map<Turno, Integer> porTurno = porHora.entrySet().stream()
+                .filter(e -> TURNOS.stream().anyMatch(t -> t.contem(e.getKey())))
+                .collect(Collectors.groupingBy(
+                        e -> TURNOS.stream().filter(t -> t.contem(e.getKey())).findFirst().orElseThrow(),
+                        Collectors.summingInt(Map.Entry::getValue)));
+        int[] contagens = TURNOS.stream().mapToInt(t -> porTurno.getOrDefault(t, 0)).toArray();
+        int total = Arrays.stream(contagens).reduce(0, Integer::sum);
         int[] percentuais = percentuaisQueSomam100(contagens, total);
 
         List<Map<String, Object>> segmentos = new ArrayList<>();
