@@ -3,12 +3,14 @@ package br.com.caracursos.recursos;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 import br.com.caracursos.dao.ColaboradorDAO;
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.RelatorioDAO;
 import br.com.caracursos.dao.RelatorioDAO.Gerado;
 import br.com.caracursos.http.ApiException;
@@ -99,6 +101,7 @@ public class RelatorioRecurso {
         }
         if (!campos.isEmpty()) throw ApiException.validacao(campos);
 
+        ZoneId fuso = new EmpresaDAO(req.conexao()).fusoHorario();
         Instant agora = Relogio.agora();
         Instant desde = periodo.desde(agora);
         String subtitulo = periodo.rotulo() + " · "

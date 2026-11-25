@@ -1,11 +1,12 @@
 package br.com.caracursos.util;
 
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
-import br.com.caracursos.dao.CertificadoDAO.Certificado;
+import br.com.caracursos.model.Certificado;
 
 /**
  * Gera o certificado em PDF sem bibliotecas: uma página A4 deitada com as
@@ -22,7 +23,12 @@ public final class CertificadoPdf {
     }
 
     public static byte[] gerar(String nomeAluno, Certificado certificado, String empresa) {
+        return gerar(nomeAluno, certificado, empresa, Relogio.FUSO_EMPRESA);
+    }
+
+    public static byte[] gerar(String nomeAluno, Certificado certificado, String empresa, ZoneId fuso) {
         boolean nivel = certificado.origem().startsWith("Nível");
+        DateTimeFormatter data = DATA.withZone(fuso == null ? Relogio.FUSO_EMPRESA : fuso);
         StringBuilder c = new StringBuilder();
         // Moldura
         c.append("0.42 0.36 0.90 RG 3 w 28 28 ").append(LARGURA - 56).append(' ').append(ALTURA - 56).append(" re S\n");

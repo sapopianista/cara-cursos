@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { celulaCsv } from './download';
 import { duracao, moeda, plural, tempoVideo, diasAte } from './formatadores';
 import { cnpjValido, emailValido, mascararCnpj, obrigatorio, email, validar } from './validacao';
 import { gerarCsv } from './download';
@@ -91,5 +92,17 @@ describe('gerarCsv', () => {
     const texto = new TextDecoder('utf-8').decode(buffer);
     expect(texto).toContain('"Ana; Clara";\'=SOMA(A1)\r\n');
     expect(texto).toContain('Rui;"diz ""oi"""');
+  });
+});
+
+describe('csv', () => {
+  it('escapa separador, aspas e evita injeção de fórmulas', () => {
+    expect(celulaCsv('Ana; Clara')).toBe('"Ana; Clara"');
+    expect(celulaCsv('diz "oi"')).toBe('"diz ""oi"""');
+    expect(celulaCsv('=SOMA(A1)')).toBe("'=SOMA(A1)");
+    expect(celulaCsv('+1+1')).toBe("'+1+1");
+    expect(celulaCsv('-1')).toBe("'-1");
+    expect(celulaCsv('@cmd')).toBe("'@cmd");
+    expect(celulaCsv(null)).toBe('');
   });
 });

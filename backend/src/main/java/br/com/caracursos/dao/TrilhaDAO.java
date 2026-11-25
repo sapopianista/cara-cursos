@@ -9,19 +9,12 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import br.com.caracursos.http.Json;
 import br.com.caracursos.model.Curso;
+import br.com.caracursos.model.CursoRef;
+import br.com.caracursos.model.Trilha;
 
 /** Trilhas (sequências de cursos) e níveis de carreira. */
 public class TrilhaDAO {
-
-    /** Formato da listagem de trilhas do contrato. */
-    public record Trilha(int id, String titulo, String descricao, String nivel, String tema, List<String> competencias,
-                         int totalCursos, int duracaoMinutos, int progresso, String status) {
-    }
-
-    public record Referencia(int id, String titulo) {
-    }
 
     /** Nível de carreira com os cursos na ordem. */
     public record Nivel(int id, int ordem, String titulo, String perfil, List<String> competencias,
@@ -57,13 +50,13 @@ public class TrilhaDAO {
     }
 
     /** Primeira trilha que contém o curso (exibida na sala de aula), ou {@code null}. */
-    public Referencia trilhaDoCurso(int idCurso) throws SQLException {
+    public CursoRef trilhaDoCurso(int idCurso) throws SQLException {
         String sql = "SELECT t.id, t.titulo FROM trilha_cursos tc JOIN trilhas t ON t.id = tc.id_trilha "
                 + "WHERE tc.id_curso = ? ORDER BY t.id LIMIT 1";
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {
             Jdbc.preencher(ps, idCurso);
             try (ResultSet rs = ps.executeQuery()) {
-                return rs.next() ? new Referencia(rs.getInt("id"), rs.getString("titulo")) : null;
+                return rs.next() ? new CursoRef(rs.getInt("id"), rs.getString("titulo")) : null;
             }
         }
     }
@@ -108,7 +101,7 @@ public class TrilhaDAO {
                     int progresso = rs.getInt("progresso");
                     lista.add(new Trilha(rs.getInt("id"), rs.getString("titulo"), rs.getString("descricao"),
                             rs.getString("nivel"), rs.getString("tema"),
-                            Json.listaDeTexto(rs.getString("competencias")), rs.getInt("total_cursos"),
+                            Jdbc.listaDeTexto(rs.getString("competencias")), rs.getInt("total_cursos"),
                             rs.getInt("duracao"), progresso, Curso.statusDoProgresso(progresso)));
                 }
             }

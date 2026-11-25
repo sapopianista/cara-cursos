@@ -181,6 +181,7 @@ Curso = {
   aulas: Aula[],
   aulaAtualId: number,                         // onde o aluno parou
   materiais: { id, nome, tamanhoBytes, url | null }[],
+  politicas: { exigirPresencaMinima: boolean, certificacaoAutomatica: boolean, permitirDownloadMateriais: boolean },
   atividades: Atividade[]
 }
 Aula = {
@@ -192,10 +193,14 @@ Aula = {
 Atividade = { id, cursoId, titulo, descricao, prazo, status: 'pendente' | 'entregue', entregueEm? }
 ```
 
+### `GET /materiais/{id}/arquivo` → arquivo binário para download
+Responde `403` quando `politicas.permitirDownloadMateriais` for `false` na configuração da empresa.
+
 ### `PUT /cursos/{id}/aulas/{aulaId}/progresso` `{ "posicaoSegundos": 342 }` → `204`
 Chamado a cada ~15 s de vídeo, ao pausar e ao sair da aula.
 
 ### `POST /cursos/{id}/aulas/{aulaId}/conclusao` → `{ aula: Aula, progressoCurso: number }`
+Quando `aula.tipo === 'avaliacao'` e `politicas.exigirPresencaMinima` está ativo, responde `409` (`PRESENCA_MINIMA`) se menos de 80% das aulas regulares estiverem concluídas.
 
 ### `POST /atividades/{id}/entregas` `{ "resposta": "texto" }` → `Atividade` (com `status: 'entregue'`)
 
@@ -303,7 +308,7 @@ banco (tabela `relatorios`), então baixar de novo traz os números do dia em qu
   licencas: { contratadas, emUso },
   proximaFatura: { vencimento, valorCentavos },
   dadosFiscais: { razaoSocial, cnpj, endereco },
-  faturas: { id, competencia, licencas, emitidaEm, valorCentavos, status: 'paga'|'aberta'|'vencida', notaFiscal: { numero, url | null } }[]
+  faturas: { id, competencia, licencas, emitidaEm, vencimento, valorCentavos, status: 'paga'|'aberta'|'vencida', notaFiscal: { numero, url | null } }[]
 }
 ```
 - `POST /admin/faturamento/licencas` `{ quantidade }` (1–500) → `{ licencasContratadas }`

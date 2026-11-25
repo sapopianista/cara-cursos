@@ -12,7 +12,7 @@ export function salvarBlob(blob, nomeArquivo) {
 }
 
 /** Escapa um valor para CSV (aspas duplas, separador, quebras de linha e injeção de fórmulas). */
-const celulaCsv = (valor) => {
+export const celulaCsv = (valor) => {
   let texto = valor == null ? '' : String(valor);
   if (texto && '=+-@'.includes(texto[0])) texto = `'${texto}`;
   return /[",;\n\r]/.test(texto) ? `"${texto.replace(/"/g, '""')}"` : texto;

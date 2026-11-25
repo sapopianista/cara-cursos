@@ -22,15 +22,16 @@ import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
 import br.com.caracursos.seguranca.Permissao;
 import br.com.caracursos.util.Cnpj;
+import br.com.caracursos.util.Email;
 
 /**
  * Painel da empresa: {@code /admin/configuracoes}.
  *
- * <p>As políticas são guardadas e devolvidas; aplicá-las (presença mínima etc.) é uma próxima etapa.
+ * <p>Persiste os dados da organização e as políticas de aprendizagem aplicadas na plataforma.
  */
 public class ConfiguracaoRecurso {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
+
     private static final Pattern DOMINIO =
             Pattern.compile("^(?=.{1,253}$)([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]{2,63}$");
     /** Os mesmos de {@code FUSOS_HORARIOS} (src/lib/rotulos.js). */
@@ -84,7 +85,7 @@ public class ConfiguracaoRecurso {
         String nomeFantasia = texto(org, "nomeFantasia");
         String razaoSocial = texto(org, "razaoSocial");
         String cnpj = texto(org, "cnpj");
-        String email = texto(org, "emailNotificacao");
+        String email = Email.normalizar(texto(org, "emailNotificacao"));
         String fuso = texto(org, "fusoHorario");
         String dominios = dominios(texto(org, "dominiosAutorizados"));
 
@@ -94,7 +95,7 @@ public class ConfiguracaoRecurso {
         if (razaoSocial == null) campos.put("razaoSocial", "Informe a razão social.");
         else if (razaoSocial.length() > 160) campos.put("razaoSocial", "Use no máximo 160 caracteres.");
         if (!Cnpj.valido(cnpj)) campos.put("cnpj", "CNPJ inválido. Confira os 14 dígitos.");
-        if (email == null || email.length() > 160 || !EMAIL.matcher(email).matches()) {
+        if (!Email.valido(email)) {
             campos.put("emailNotificacao", "Informe um e-mail válido.");
         }
         if (fuso == null || !FUSOS.contains(fuso)) campos.put("fusoHorario", "Escolha um fuso horário.");
@@ -105,7 +106,7 @@ public class ConfiguracaoRecurso {
 
         Politicas p = atual.politicas();
         Configuracoes novas = new Configuracoes(
-                new Organizacao(nomeFantasia, razaoSocial, Cnpj.formatar(cnpj), email.toLowerCase(Locale.ROOT), fuso,
+                new Organizacao(nomeFantasia, razaoSocial, Cnpj.formatar(cnpj), email, fuso,
                         dominios),
                 new Politicas(booleano(pol, "exigirPresencaMinima", p.exigirPresencaMinima()),
                         booleano(pol, "certificacaoAutomatica", p.certificacaoAutomatica()),

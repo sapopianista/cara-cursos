@@ -50,7 +50,7 @@ public class Usuario {
     private String matricula;
     private String nome;
     private String email;
-    private String senha;
+    private transient String senha;
     private boolean trocarSenha;
     private TipoPerfil tipoPerfil;
     private String cargo;
@@ -84,6 +84,10 @@ public class Usuario {
     /** Primeiro nome, usado na saudação da tela inicial. */
     public String getPrimeiroNome() {
         return nome == null ? null : nome.trim().split("\\s+")[0];
+    }
+
+    public static String formatarMatricula(int id) {
+        return String.format("COL-%04d", id);
     }
 
     public Integer getId() {

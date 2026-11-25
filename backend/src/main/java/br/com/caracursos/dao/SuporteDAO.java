@@ -9,13 +9,12 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.com.caracursos.model.CursoRef;
+
 /** Central de suporte (tabelas {@code faq} e {@code chamados}). {@code escopo} é "aluno" ou "gestor". */
 public class SuporteDAO {
 
     public record Pergunta(int id, String pergunta, String resposta) {
-    }
-
-    public record CursoRef(int id, String titulo) {
     }
 
     /** Formato {@code Chamado} do contrato. */

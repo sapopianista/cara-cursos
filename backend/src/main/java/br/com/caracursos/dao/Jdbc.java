@@ -1,17 +1,31 @@
 package br.com.caracursos.dao;
 
+import java.lang.reflect.Type;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.Instant;
+import java.util.List;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 
 import br.com.caracursos.util.Relogio;
 
 /** Conversões repetidas entre JDBC e Java. Datas no banco estão em UTC. */
 final class Jdbc {
 
+    private static final Type LISTA_TEXTO = new TypeToken<List<String>>() { }.getType();
+    private static final Gson GSON = new Gson();
+
     private Jdbc() {
+    }
+
+    /** Lê colunas JSON do banco do tipo {@code ["a", "b"]}. */
+    static List<String> listaDeTexto(String json) {
+        if (json == null || json.isBlank()) return List.of();
+        return GSON.fromJson(json, LISTA_TEXTO);
     }
 
     static Instant instante(ResultSet rs, String coluna) throws SQLException {

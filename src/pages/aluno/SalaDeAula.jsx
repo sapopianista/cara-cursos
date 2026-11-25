@@ -1,5 +1,6 @@
+import { useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { CheckCircle2, ClipboardCheck, FileText, PlayCircle, SkipForward } from 'lucide-react';
+import { CheckCircle2, ClipboardCheck, FileText, Lock, PlayCircle, SkipForward } from 'lucide-react';
 import useApi from '../../hooks/useApi';
 import useMutacao from '../../hooks/useMutacao';
 import { useTituloPagina } from '../../hooks/utilitarios';
@@ -94,6 +95,98 @@ function ListaAulas({ cursoId, aulas, aulaAtivaId, progresso }) {
   );
 }
 
+function AvaliacaoAula({ aula, curso, presenca, bloqueada, concluindo, onConcluir, proximaAula, onProxima }) {
+  const [marcados, setMarcados] = useState([]);
+  const criterios = [
+    `Compreendi os conceitos fundamentais de ${curso.titulo}`,
+    'Consigo aplicar o conteúdo apresentado na minha rotina de trabalho',
+    'Revisei os exemplos e orientações práticas do módulo',
+  ];
+
+  const alternar = (i) =>
+    setMarcados((atual) => (atual.includes(i) ? atual.filter((x) => x !== i) : [...atual, i]));
+
+  return (
+    <Card espacamento="lg" className="space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-4 border-b border-line pb-4">
+        <div className="flex items-start gap-3">
+          <span className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <ClipboardCheck size={20} aria-hidden />
+          </span>
+          <div>
+            <h2 className="text-lg font-semibold text-ink">Avaliação do módulo</h2>
+            <p className="text-sm text-muted">
+              {aula.titulo} · {tempoVideo(aula.duracaoSegundos)} estimados
+            </p>
+          </div>
+        </div>
+        {aula.status === 'concluida' && (
+          <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
+            <CheckCircle2 size={16} aria-hidden />
+            Avaliação concluída
+          </span>
+        )}
+      </div>
+
+      {bloqueada ? (
+        <div role="status" className="space-y-2 rounded-xl border border-line bg-surface2 p-4 text-sm">
+          <p className="flex items-center gap-2 font-semibold text-ink">
+            <Lock size={16} aria-hidden className="text-warn" />
+            Avaliação bloqueada pela política de presença mínima
+          </p>
+          <p className="text-muted">
+            Conclua pelo menos 80% das aulas do curso antes de realizar esta avaliação (presença atual: {presenca}%).
+          </p>
+        </div>
+      ) : aula.status === 'concluida' ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">Você concluiu a verificação deste módulo em {curso.titulo}.</p>
+          {proximaAula && (
+            <Button iconeDireita={SkipForward} onClick={onProxima}>
+              Próxima aula
+            </Button>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <fieldset className="space-y-3">
+            <legend className="text-sm font-medium text-ink">
+              Autoavaliação de aprendizagem antes da conclusão:
+            </legend>
+            <ul className="space-y-2">
+              {criterios.map((texto, i) => {
+                const id = `criterio-${aula.id}-${i}`;
+                return (
+                  <li key={id}>
+                    <label
+                      htmlFor={id}
+                      className="flex cursor-pointer items-start gap-3 rounded-xl border border-line bg-surface2 px-3.5 py-2.5 text-sm text-ink transition-colors hover:border-primary/40"
+                    >
+                      <input
+                        id={id}
+                        type="checkbox"
+                        checked={marcados.includes(i)}
+                        onChange={() => alternar(i)}
+                        className="mt-0.5 h-4 w-4 accent-primary"
+                      />
+                      <span>{texto}</span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+          </fieldset>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={onConcluir} carregando={concluindo}>
+              Concluir avaliação
+            </Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
+
 /**
  * Sala de aula: /cursos/:cursoId e /cursos/:cursoId/aulas/:aulaId.
  * A aula escolhida fica na URL (dá para compartilhar e usar o "voltar").
@@ -153,18 +246,42 @@ export default function SalaDeAula() {
     ? { to: `/trilhas/${curso.trilha.id}`, rotulo: `Trilha ${curso.trilha.titulo}` }
     : { to: '/explorar', rotulo: 'Voltar para Explorar' };
 
+  const aulasRegulares = aulas.filter((a) => a.tipo !== 'avaliacao');
+  const presencaRegulares =
+    aulasRegulares.length === 0
+      ? 100
+      : Math.round((aulasRegulares.filter((a) => a.status === 'concluida').length / aulasRegulares.length) * 100);
+  const exigirPresenca = dados?.politicas?.exigirPresencaMinima ?? true;
+  const avaliacaoBloqueada =
+    aula?.tipo === 'avaliacao' && aula.status !== 'concluida' && exigirPresenca && presencaRegulares < 80;
+  const permitirDownloads = dados?.politicas?.permitirDownloadMateriais ?? true;
+
   return (
     <Pagina titulo={aula.titulo} tituloAba={false} cabecalhoOculto voltar={voltar} largura="larga">
       <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-8">
-          <PlayerAula
-            key={aula.id}
-            aula={aula}
-            onSalvarPosicao={salvarPosicao}
-            onTerminar={() => marcarConcluida({ silencioso: true })}
-            proximaAula={proxima}
-            onProxima={() => proxima && irPara(proxima)}
-          />
+          {aula.tipo === 'avaliacao' ? (
+            <AvaliacaoAula
+              key={aula.id}
+              aula={aula}
+              curso={curso}
+              presenca={presencaRegulares}
+              bloqueada={avaliacaoBloqueada}
+              concluindo={conclusao.executando}
+              onConcluir={() => marcarConcluida()}
+              proximaAula={proxima}
+              onProxima={() => proxima && irPara(proxima)}
+            />
+          ) : (
+            <PlayerAula
+              key={aula.id}
+              aula={aula}
+              onSalvarPosicao={salvarPosicao}
+              onTerminar={() => marcarConcluida({ silencioso: true })}
+              proximaAula={proxima}
+              onProxima={() => proxima && irPara(proxima)}
+            />
+          )}
 
           <header className="flex flex-col gap-4 border-b border-line pb-6 sm:flex-row sm:items-start sm:justify-between">
             <div className="min-w-0">
@@ -188,6 +305,7 @@ export default function SalaDeAula() {
                   variante="secondary"
                   onClick={() => marcarConcluida()}
                   carregando={conclusao.executando}
+                  disabled={avaliacaoBloqueada}
                 >
                   Marcar como concluída
                 </Button>
@@ -202,6 +320,11 @@ export default function SalaDeAula() {
 
           {dados.materiais.length > 0 && (
             <Secao titulo="Material de apoio">
+              {!permitirDownloads && (
+                <p role="status" className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-2.5 text-sm text-muted">
+                  O download de materiais de apoio está desativado pela organização.
+                </p>
+              )}
               <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
                 {dados.materiais.map((m) => (
                   <li
@@ -216,7 +339,8 @@ export default function SalaDeAula() {
                       </span>
                     </span>
                     <BotaoDownload
-                      disponivel={Boolean(m.url)}
+                      disponivel={Boolean(m.url) && permitirDownloads}
+                      rotuloIndisponivel={permitirDownloads ? undefined : 'Download desativado'}
                       onBaixar={() => baixarMaterial(m)}
                       aria-label={`Baixar ${m.nome}`}
                     />

@@ -1,4 +1,4 @@
-package br.com.caracursos.http;
+package br.com.caracursos.model;
 
 import java.util.List;
 

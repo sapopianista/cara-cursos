@@ -10,6 +10,7 @@ import br.com.caracursos.http.ApiException;
 import br.com.caracursos.http.Json;
 import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
+import br.com.caracursos.model.Trilha;
 import br.com.caracursos.seguranca.Permissao;
 
 /** {@code /trilhas}: lista e detalhe (com os cursos na ordem sugerida). */
@@ -23,7 +24,7 @@ public class TrilhaRecurso {
     private Object buscar(Requisicao req) throws SQLException {
         TrilhaDAO trilhas = new TrilhaDAO(req.conexao());
         int id = req.idCaminho("id");
-        TrilhaDAO.Trilha trilha = trilhas.buscar(id, req.idUsuario());
+        Trilha trilha = trilhas.buscar(id, req.idUsuario());
         if (trilha == null) throw ApiException.naoEncontrado("Esta trilha não existe.");
         JsonObject json = Json.objeto(trilha);
         json.add("cursos", Json.arvore(new CursoDAO(req.conexao()).listarPorIds(trilhas.cursosDaTrilha(id),

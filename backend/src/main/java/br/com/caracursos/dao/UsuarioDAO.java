@@ -58,7 +58,7 @@ public class UsuarioDAO {
                 u.setId(chaves.getInt(1));
             }
         }
-        u.setMatricula(String.format("COL-%04d", u.getId()));
+        u.setMatricula(Usuario.formatarMatricula(u.getId()));
         u.setCriadoEm(agora);
         try (PreparedStatement ps = conexao.prepareStatement("UPDATE usuarios SET matricula = ? WHERE id = ?")) {
             Jdbc.preencher(ps, u.getMatricula(), u.getId());
@@ -133,7 +133,6 @@ public class UsuarioDAO {
             return rs.getInt(1) < contratadas;
         }
     }
-
     private Usuario buscarUm(String sql, Object... valores) throws SQLException {
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {
             Jdbc.preencher(ps, valores);

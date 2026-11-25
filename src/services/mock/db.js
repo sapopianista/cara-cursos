@@ -386,8 +386,10 @@ const gerarAulas = (c) => {
       tipo: i === titulos.length - 1 && titulos.length > 4 ? 'avaliacao' : 'video',
       duracaoSegundos,
       status: i < concluidas ? 'concluida' : emAndamento ? 'em_andamento' : 'pendente',
-      posicaoSegundos: emAndamento ? Math.round(duracaoSegundos * 0.4) : 0,
+      posicaoSegundos: i < concluidas ? duracaoSegundos : emAndamento ? Math.round(duracaoSegundos * 0.4) : 0,
       videoUrl: VIDEO_DEMO,
+      posterUrl: null,
+      legendaUrl: null,
     };
   });
 };
@@ -396,10 +398,10 @@ export const aulasPorCurso = Object.fromEntries(cursos.map((c) => [c.id, gerarAu
 
 export const materiaisPorCurso = {
   1: [
-    { id: 1, nome: 'Guia de comunicação assertiva.pdf', tamanhoBytes: 1_480_000, url: null },
-    { id: 2, nome: 'Roteiro de feedback.docx', tamanhoBytes: 86_000, url: null },
+    { id: 1, nome: 'Guia de comunicação assertiva.pdf', tamanhoBytes: 1_480_000, url: '/materiais/1/arquivo' },
+    { id: 2, nome: 'Roteiro de feedback.docx', tamanhoBytes: 86_000, url: '/materiais/2/arquivo' },
   ],
-  4: [{ id: 3, nome: 'Planilhas de exercício.xlsx', tamanhoBytes: 320_000, url: null }],
+  4: [{ id: 3, nome: 'Planilhas de exercício.xlsx', tamanhoBytes: 320_000, url: '/materiais/3/arquivo' }],
 };
 
 export const atividades = [
@@ -410,6 +412,7 @@ export const atividades = [
     descricao: 'Monte um cronograma semanal priorizando tarefas urgentes e importantes.',
     prazo: daqui(2),
     status: 'pendente',
+    entregueEm: null,
   },
   {
     id: 2,
@@ -418,6 +421,7 @@ export const atividades = [
     descricao: 'Redija uma resposta objetiva para alinhar expectativas usando Comunicação Não-Violenta.',
     prazo: daqui(3),
     status: 'pendente',
+    entregueEm: null,
   },
   {
     id: 3,
@@ -426,6 +430,7 @@ export const atividades = [
     descricao: 'Use a planilha de exercício para montar um resumo de vendas por região.',
     prazo: daqui(6),
     status: 'pendente',
+    entregueEm: null,
   },
 ];
 
@@ -513,7 +518,7 @@ export const certificados = [
     origem: 'Nível 1',
     emitidoEm: atras({ dias: 120 }),
     codigo: 'CC-9482-OSC',
-    url: null,
+    url: '/certificados/1/arquivo',
   },
   {
     id: 2,
@@ -521,7 +526,7 @@ export const certificados = [
     origem: 'Curso',
     emitidoEm: atras({ dias: 95 }),
     codigo: 'CC-7393-LGP',
-    url: null,
+    url: '/certificados/2/arquivo',
   },
   {
     id: 3,
@@ -529,7 +534,7 @@ export const certificados = [
     origem: 'Curso',
     emitidoEm: atras({ dias: 40 }),
     codigo: 'CC-8821-AGI',
-    url: null,
+    url: '/certificados/3/arquivo',
   },
 ];
 
@@ -853,7 +858,7 @@ export const relatoriosGerados = [
     status: 'pronto',
     solicitadoPor: 'Beatriz Albuquerque',
     criadoEm: atras({ horas: 4 }),
-    url: null,
+    url: '/admin/relatorios/101/arquivo',
   },
   {
     id: 102,
@@ -863,7 +868,7 @@ export const relatoriosGerados = [
     status: 'pronto',
     solicitadoPor: 'Tiago Vieira',
     criadoEm: atras({ dias: 1, horas: 2 }),
-    url: null,
+    url: '/admin/relatorios/102/arquivo',
   },
   {
     id: 103,
@@ -873,7 +878,7 @@ export const relatoriosGerados = [
     status: 'pronto',
     solicitadoPor: 'Rodrigo Caetano',
     criadoEm: atras({ dias: 9 }),
-    url: null,
+    url: '/admin/relatorios/103/arquivo',
   },
 ];
 
@@ -898,14 +903,16 @@ const mesAnterior = (n) => {
 
 export const faturas = [0, 1, 2, 3].map((n) => {
   const emissao = mesAnterior(n);
+  const id = `INV-${emissao.getFullYear()}-${String(emissao.getMonth() + 1).padStart(2, '0')}`;
   return {
-    id: `INV-${emissao.getFullYear()}-${String(emissao.getMonth() + 1).padStart(2, '0')}`,
+    id,
     competencia: emissao.toISOString(),
     licencas: n >= 2 ? 25 : 30,
     valorCentavos: (n >= 2 ? 25 : 30) * contrato.valorLicencaMensalCentavos,
     emitidaEm: emissao.toISOString(),
+    vencimento: emissao.toISOString(),
     status: 'paga',
-    notaFiscal: { numero: `NFE-${90420 - n * 37}`, url: null },
+    notaFiscal: { numero: `NFE-${90420 - n * 37}`, url: `/admin/faturamento/faturas/${id}/nota` },
   };
 });
 

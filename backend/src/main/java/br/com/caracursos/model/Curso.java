@@ -31,7 +31,7 @@ public class Curso {
     private String imagemUrl;
     /** 0–100, do usuário logado. */
     private int progresso;
-    private String status;
+    private String status = "nao_iniciado";
 
     /** {@code nao_iniciado} | {@code em_andamento} | {@code concluido}. */
     public static String statusDoProgresso(int progresso) {
@@ -157,9 +157,13 @@ public class Curso {
         return status;
     }
 
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
     @Override
     public boolean equals(Object outro) {
-        return outro instanceof Curso c && c.id == id;
+        return this == outro || (outro instanceof Curso c && id > 0 && c.id == id);
     }
 
     @Override

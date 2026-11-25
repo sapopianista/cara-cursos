@@ -8,6 +8,7 @@ import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
 
+import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.SessaoDAO;
 import br.com.caracursos.dao.UsuarioDAO;
 import br.com.caracursos.http.ApiException;
@@ -120,7 +121,7 @@ public class AuthRecurso {
 
     /** Formato {@code Usuario} do contrato: { id, nome, email, cargo, departamento, papel, trocarSenha, empresa }. */
     static Map<String, Object> usuarioJson(Usuario u, Connection c) throws SQLException {
-        UsuarioDAO.Empresa empresa = new UsuarioDAO(c).empresa();
+        EmpresaDAO.Resumo empresa = new EmpresaDAO(c).resumo();
         Map<String, Object> json = new LinkedHashMap<>();
         json.put("id", u.getId());
         json.put("nome", u.getNome());

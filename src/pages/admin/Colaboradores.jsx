@@ -316,6 +316,7 @@ export default function Colaboradores() {
   const [busca, setBusca] = useState('');
   const buscaDebounced = useDebounce(busca.trim(), 350);
   const [status, setStatus] = useState('todos');
+  const [departamento, setDepartamento] = useState('');
   const [pagina, setPagina] = useState(1);
   const [form, setForm] = useState({ aberto: false, colaborador: null, versao: 0 });
   const abrirForm = (colaborador = null) =>
@@ -328,8 +329,8 @@ export default function Colaboradores() {
   const resumo = useApi(getResumoColaboradores);
   const { dados: opcoes } = useApi(getOpcoesColaboradores);
   const lista = useApi(
-    () => listarColaboradores({ busca: buscaDebounced, status, pagina, porPagina: POR_PAGINA }),
-    [buscaDebounced, status, pagina],
+    () => listarColaboradores({ busca: buscaDebounced, status, departamento, pagina, porPagina: POR_PAGINA }),
+    [buscaDebounced, status, departamento, pagina],
   );
   const mudarStatus = useMutacao(alterarStatusColaborador, { onErro: (e) => toast.erro(e.message) });
 
@@ -364,7 +365,7 @@ export default function Colaboradores() {
   const exportar = async () => {
     setExportando(true);
     try {
-      await exportarColaboradores({ busca: buscaDebounced, status });
+      await exportarColaboradores({ busca: buscaDebounced, status, departamento });
       toast.sucesso('Planilha gerada. Confira seus downloads.');
     } catch (e) {
       toast.erro(e.message || 'Não foi possível exportar.');
@@ -519,19 +520,35 @@ export default function Colaboradores() {
       </StatGrid>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <CampoTexto
-          rotulo="Buscar colaborador"
-          rotuloOculto
-          icone={Search}
-          type="search"
-          placeholder="Buscar por nome, e-mail, cargo ou área"
-          value={busca}
-          onChange={(e) => {
-            setBusca(e.target.value);
-            setPagina(1);
-          }}
-          className="w-full lg:max-w-sm"
-        />
+        <div className="flex flex-1 flex-col gap-3 sm:flex-row sm:items-center">
+          <CampoTexto
+            rotulo="Buscar colaborador"
+            rotuloOculto
+            icone={Search}
+            type="search"
+            placeholder="Buscar por nome, e-mail, cargo ou área"
+            value={busca}
+            onChange={(e) => {
+              setBusca(e.target.value);
+              setPagina(1);
+            }}
+            className="w-full lg:max-w-sm"
+          />
+          <CampoSelecao
+            rotulo="Filtrar por departamento"
+            rotuloOculto
+            opcoes={[
+              { valor: '', rotulo: 'Todos os departamentos' },
+              ...(opcoes?.departamentos ?? []).map((d) => ({ valor: d, rotulo: d })),
+            ]}
+            value={departamento}
+            onChange={(e) => {
+              setDepartamento(e.target.value);
+              setPagina(1);
+            }}
+            className="w-full sm:w-56"
+          />
+        </div>
         <SegmentedControl
           variante="chips"
           rotulo="Filtrar por status"
@@ -549,7 +566,7 @@ export default function Colaboradores() {
         />
       </div>
 
-      {p.total === 0 && !buscaDebounced && status === 'todos' ? (
+      {p.total === 0 && !buscaDebounced && status === 'todos' && !departamento ? (
         <Vazio
           icone={Users}
           titulo="Nenhum colaborador cadastrado"
@@ -572,6 +589,7 @@ export default function Colaboradores() {
                   onClick={() => {
                     setBusca('');
                     setStatus('todos');
+                    setDepartamento('');
                     setPagina(1);
                   }}
                 >

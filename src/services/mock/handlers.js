@@ -168,10 +168,13 @@ const statusDoProgresso = (p) =>
 
 const enriquecerCurso = (c) => {
   const progresso = db.progressoCursos[c.id] ?? 0;
+  const categoria = db.categorias.find((x) => x.id === c.categoriaId);
+  const area = db.areas.find((x) => x.id === c.areaId);
+  const { categoriaId: _catId, areaId: _areaId, destaque: _dest, lancamento: _lanc, ...base } = c;
   return {
-    ...c,
-    categoria: db.categorias.find((x) => x.id === c.categoriaId),
-    area: db.areas.find((x) => x.id === c.areaId),
+    ...base,
+    categoria: categoria ? { id: categoria.id, nome: categoria.nome } : null,
+    area: area ? { id: area.id, nome: area.nome } : null,
     progresso,
     status: statusDoProgresso(progresso),
   };
@@ -246,17 +249,34 @@ export function getSalaDeAula(cursoId) {
   const trilha = db.trilhas.find((t) => t.cursoIds.includes(c.id));
   const atual =
     aulas.find((a) => a.status === 'em_andamento') ?? aulas.find((a) => a.status === 'pendente') ?? aulas[0];
-  const permitirDownload = db.configuracoes.politicas.permitirDownloadMateriais;
+  const politicas = { ...db.configuracoes.politicas };
   const materiais = (db.materiaisPorCurso[c.id] ?? []).map((m) =>
-    permitirDownload ? m : { ...m, url: null },
+    politicas.permitirDownloadMateriais ? m : { ...m, url: null },
   );
   return responder({
     curso: { ...enriquecerCurso(c), trilha: trilha ? { id: trilha.id, titulo: trilha.titulo } : null },
     aulas,
     aulaAtualId: atual.id,
     materiais,
+    politicas,
     atividades: db.atividades.filter((a) => a.cursoId === c.id),
   });
+}
+
+export async function baixarMaterial(material) {
+  if (!db.configuracoes.politicas.permitirDownloadMateriais) {
+    return falhar(403, 'O download de materiais de apoio está desativado pela organização.');
+  }
+  await responder(null, 200);
+  const nome = material?.nome ?? 'material.pdf';
+  const pdf = nome.toLowerCase().endsWith('.pdf');
+  salvarBlob(
+    new Blob(
+      [pdf ? '%PDF-1.4\n% Material de apoio demonstrativo' : `Material de apoio demonstrativo: ${nome}`],
+      { type: pdf ? 'application/pdf' : 'application/octet-stream' },
+    ),
+    nome,
+  );
 }
 
 const recalcularProgresso = (cursoId) => {
@@ -289,6 +309,7 @@ export function concluirAula(cursoId, aulaId) {
     }
   }
   aula.status = 'concluida';
+  aula.posicaoSegundos = aula.duracaoSegundos;
   const progressoCurso = recalcularProgresso(Number(cursoId));
   return responder({ aula, progressoCurso }, 200);
 }
@@ -421,6 +442,9 @@ export function getPerfil() {
 
 export function atualizarPreferencias(preferencias) {
   db.preferenciasPorUsuario[usuarioLogadoId] = {
+    metaSemanalMinutos: 480,
+    notificacoesEmail: true,
+    resumoSemanal: true,
     ...db.preferenciasPorUsuario[usuarioLogadoId],
     ...preferencias,
   };
@@ -476,6 +500,18 @@ export function marcarTodasNotificacoesLidas() {
 
 // ---------------------------------------------------------------- suporte
 
+const montarChamado = (c) => {
+  const curso = c.cursoId ? db.cursos.find((x) => x.id === c.cursoId) : null;
+  return {
+    id: c.id,
+    assunto: c.assunto,
+    titulo: c.titulo,
+    curso: curso ? { id: curso.id, titulo: curso.titulo } : null,
+    status: c.status,
+    atualizadoEm: c.atualizadoEm,
+  };
+};
+
 export const getSuporte = (escopo) =>
   responder({
     faq: db.faq[escopo],
@@ -485,10 +521,7 @@ export const getSuporte = (escopo) =>
     chamados: db.chamados
       .filter((c) => c.escopo === escopo)
       .sort((a, b) => b.atualizadoEm.localeCompare(a.atualizadoEm))
-      .map((c) => ({
-        ...c,
-        curso: c.cursoId ? resumoCurso(db.cursos.find((x) => x.id === c.cursoId)) : null,
-      })),
+      .map(montarChamado),
   });
 
 export function abrirChamado(escopo, { assunto, titulo, cursoId, descricao }) {
@@ -511,13 +544,7 @@ export function abrirChamado(escopo, { assunto, titulo, cursoId, descricao }) {
     atualizadoEm: new Date().toISOString(),
   };
   db.chamados.push(chamado);
-  return responder(
-    {
-      ...chamado,
-      curso: chamado.cursoId ? resumoCurso(db.cursos.find((x) => x.id === chamado.cursoId)) : null,
-    },
-    500,
-  );
+  return responder(montarChamado(chamado), 500);
 }
 
 // ---------------------------------------------------------------- admin: dashboard
@@ -584,8 +611,10 @@ const filtrarColaboradores = ({ busca, status, departamento } = {}) => {
     .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
 };
 
+const colaboradorPublico = ({ senha: _senha, trocarSenha: _trocar, ...publico }) => publico;
+
 export const listarColaboradores = ({ pagina = 1, porPagina = 10, ...filtros } = {}) =>
-  responder(paginar(filtrarColaboradores(filtros), pagina, porPagina));
+  responder(paginar(filtrarColaboradores(filtros).map(colaboradorPublico), pagina, porPagina));
 
 const licencasEmUso = () => db.colaboradores.filter((c) => c.status !== 'inativo').length;
 
@@ -609,7 +638,7 @@ export const getOpcoesColaboradores = () =>
   responder({ cargos: db.cargos, departamentos: db.departamentos, niveis: [1, 2, 3, 4] }, 100);
 
 const dominiosAutorizados = () =>
-  (db.configuracoes.organizacao.dominiosAutorizados ?? '')
+  String(db.configuracoes.organizacao.dominiosAutorizados ?? '')
     .split(',')
     .map((d) => d.trim().toLowerCase())
     .filter(Boolean);
@@ -853,20 +882,43 @@ export const getRelatorios = () =>
 export function gerarRelatorio({ modeloId, periodo, departamento }) {
   if (!db.modelosRelatorio.some((m) => m.id === modeloId))
     return falhar(422, 'Modelo de relatório inválido.');
+  const id = proximoId(db.relatoriosGerados);
   const relatorio = {
-    id: proximoId(db.relatoriosGerados),
+    id,
     modeloId,
     periodo,
     departamento: departamento || null,
-    status: 'processando',
+    status: 'pronto',
     solicitadoPor: usuarioAtual()?.nome ?? '—',
     criadoEm: new Date().toISOString(),
-    url: null,
+    url: `/admin/relatorios/${id}/arquivo`,
   };
   db.relatoriosGerados.push(relatorio);
-  // Simula o processamento assíncrono no servidor.
-  setTimeout(() => (relatorio.status = 'pronto'), 3000);
   return responder(montarRelatorio(relatorio), 400);
+}
+
+export async function baixarCertificado(certificado) {
+  await responder(null, 200);
+  salvarBlob(
+    new Blob(['%PDF-1.4\n% Certificado demonstrativo'], { type: 'application/pdf' }),
+    `certificado-${certificado.codigo}.pdf`,
+  );
+}
+
+export async function baixarRelatorio(relatorio) {
+  await responder(null, 200);
+  salvarBlob(
+    new Blob(['Relatorio demonstrativo'], { type: 'text/plain;charset=utf-8' }),
+    `${relatorio.modeloId ?? 'relatorio'}-${relatorio.id}.${relatorio.modelo?.formato ?? 'csv'}`,
+  );
+}
+
+export async function baixarNotaFiscal(fatura) {
+  await responder(null, 200);
+  salvarBlob(
+    new Blob(['%PDF-1.4\n% Demonstrativo de fatura'], { type: 'application/pdf' }),
+    `${fatura.notaFiscal.numero}.pdf`,
+  );
 }
 
 // ---------------------------------------------------------------- admin: faturamento

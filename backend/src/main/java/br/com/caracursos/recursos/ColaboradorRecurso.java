@@ -2,53 +2,52 @@ package br.com.caracursos.recursos;
 
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.SQLIntegrityConstraintViolationException;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
-import java.util.regex.Pattern;
 
-import br.com.caracursos.dao.AuditoriaDAO;
 import br.com.caracursos.dao.ColaboradorDAO;
-import br.com.caracursos.dao.ColaboradorDAO.Colaborador;
 import br.com.caracursos.dao.EmpresaDAO;
-import br.com.caracursos.dao.MatriculaDAO;
-import br.com.caracursos.dao.SessaoDAO;
 import br.com.caracursos.dao.UsuarioDAO;
 import br.com.caracursos.http.ApiException;
 import br.com.caracursos.http.Arquivo;
 import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
-import br.com.caracursos.model.Curso;
+import br.com.caracursos.model.Colaborador;
 import br.com.caracursos.model.Usuario;
 import br.com.caracursos.seguranca.Permissao;
 import br.com.caracursos.seguranca.Senhas;
+import br.com.caracursos.service.ColaboradorService;
 import br.com.caracursos.util.Csv;
+import br.com.caracursos.util.Email;
 import br.com.caracursos.util.Relogio;
 
 /** Painel da empresa: {@code /admin/colaboradores}. */
 public class ColaboradorRecurso {
 
-    private static final Pattern EMAIL = Pattern.compile("^[^\\s@]+@[^\\s@]+\\.[^\\s@]{2,}$");
+
     private static final List<Integer> NIVEIS = List.of(1, 2, 3, 4);
     private static final Map<String, String> STATUS_CSV = Map.of(
             "ativo", "Ativo", "pendente", "Aguardando 1º acesso", "inativo", "Inativo");
     private static final DateTimeFormatter DATA_HORA_CSV =
             DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
 
+    private final ColaboradorService servico = new ColaboradorService();
+
     public void registrar(Roteador r) {
         Permissao p = Permissao.ADMIN_COLABORADORES;
         r.get("/admin/colaboradores", p, this::listar);
-        r.get("/admin/colaboradores/resumo", p, this::resumo);
+        r.get("/admin/colaboradores/resumo", p, req -> servico.resumo(req.conexao()));
         r.get("/admin/colaboradores/opcoes", p, this::opcoes);
         r.get("/admin/colaboradores/exportar", p, this::exportar);
         r.post("/admin/colaboradores", p, this::criar);
         r.put("/admin/colaboradores/{id}", p, this::atualizar);
         r.patch("/admin/colaboradores/{id}/status", p, this::alterarStatus);
-        r.get("/admin/colaboradores/{id}/progresso", p, this::progresso);
+        r.get("/admin/colaboradores/{id}/progresso", p,
+                req -> servico.progresso(req.conexao(), req.idCaminho("id")));
         r.put("/admin/colaboradores/{id}/senha", p, this::redefinirSenha);
     }
 
@@ -61,34 +60,17 @@ public class ColaboradorRecurso {
                 req.parametroInt("porPagina", 10));
     }
 
-    private Object resumo(Requisicao req) throws SQLException {
-        ColaboradorDAO.Resumo r = new ColaboradorDAO(req.conexao()).resumo();
-        UsuarioDAO usuarios = new UsuarioDAO(req.conexao());
-        Map<String, Object> json = new LinkedHashMap<>();
-        json.put("total", r.total());
-        json.put("ativos", r.ativos());
-        json.put("pendentes", r.pendentes());
-        json.put("inativos", r.inativos());
-        json.put("conclusaoMedia", r.conclusaoMedia());
-        json.put("licencas", Map.of("emUso", usuarios.contarLicencasEmUso(),
-                "contratadas", usuarios.licencasContratadas()));
-        return json;
-    }
-
     private Object opcoes(Requisicao req) throws SQLException {
         ColaboradorDAO dao = new ColaboradorDAO(req.conexao());
         return Map.of("cargos", dao.cargos(), "departamentos", dao.departamentos(), "niveis", NIVEIS);
     }
 
-    /** Dados do formulário, já validados. */
-    private record Dados(String nome, String email, String cargo, String departamento, int nivel) {
-    }
-
-    private static Dados validar(Requisicao req, Integer idAtual, int nivelPadrao) throws SQLException {
+    private static ColaboradorService.Dados validar(Requisicao req, Integer idAtual, int nivelPadrao)
+            throws SQLException {
         Connection c = req.conexao();
         ColaboradorDAO dao = new ColaboradorDAO(c);
         String nome = req.texto("nome");
-        String email = req.texto("email") == null ? null : req.texto("email").toLowerCase(Locale.ROOT);
+        String email = Email.normalizar(req.texto("email"));
         String cargo = req.texto("cargo");
         String departamento = req.texto("departamento");
         Integer nivel = req.inteiro("nivel");
@@ -96,13 +78,12 @@ public class ColaboradorRecurso {
         Map<String, String> campos = new LinkedHashMap<>();
         if (nome == null) campos.put("nome", "Informe o nome completo.");
         else if (nome.length() > 120) campos.put("nome", "Use no máximo 120 caracteres.");
-        if (email == null || email.length() > 160 || !EMAIL.matcher(email).matches()) {
+        if (!Email.valido(email)) {
             campos.put("email", "Informe um e-mail válido.");
         } else {
             List<String> dominios = new EmpresaDAO(c).dominiosAutorizados();
-            String dominio = email.substring(email.indexOf('@') + 1);
-            if (!dominios.isEmpty() && !dominios.contains(dominio)) {
-                campos.put("email", "Use um e-mail dos domínios autorizados (" + String.join(", ", dominios) + ").");
+            if (!Email.dominioAutorizado(email, dominios)) {
+                campos.put("email", "Use um domínio autorizado: " + String.join(", ", dominios) + ".");
             } else if (new UsuarioDAO(c).emailEmUso(email, idAtual)) {
                 campos.put("email", "Já existe um colaborador com este e-mail.");
             }
@@ -113,21 +94,13 @@ public class ColaboradorRecurso {
         }
         if (nivel != null && !NIVEIS.contains(nivel)) campos.put("nivel", "Escolha um nível de 1 a 4.");
         if (!campos.isEmpty()) throw ApiException.validacao(campos);
-        return new Dados(nome, email, cargo, departamento, nivel == null ? nivelPadrao : nivel);
+        return new ColaboradorService.Dados(nome, email, cargo, departamento, nivel == null ? nivelPadrao : nivel);
     }
 
-    private static ApiException semLicencas(String mensagem) {
-        return ApiException.conflito("SEM_LICENCAS", mensagem);
-    }
-
-    /**
-     * Cria com a senha inicial informada pelo RH (não há envio de e-mail). Fica "pendente" até
-     * o primeiro acesso, e a pessoa precisa trocar a senha antes de usar o sistema.
-     */
     private Object criar(Requisicao req) throws SQLException {
         String senha = req.textoOriginal("senhaInicial");
         String problema = Senhas.problema(senha);
-        Dados d;
+        ColaboradorService.Dados d;
         try {
             d = validar(req, null, 1);
         } catch (ApiException e) {
@@ -137,25 +110,7 @@ public class ColaboradorRecurso {
             throw ApiException.validacao(campos);
         }
         if (problema != null) throw ApiException.validacao(Map.of("senhaInicial", problema));
-        try {
-            int id = req.transacao(c -> {
-                UsuarioDAO usuarios = new UsuarioDAO(c);
-                if (!usuarios.temLicencaLivreTravando()) {
-                    throw semLicencas("Todas as licenças estão em uso. Contrate mais licenças em Plano e faturamento.");
-                }
-                Usuario u = new Usuario(d.nome(), d.email(), Senhas.gerar(senha), Usuario.TipoPerfil.COLABORADOR);
-                u.setTrocarSenha(true);
-                u.setCargo(d.cargo());
-                u.setDepartamento(d.departamento());
-                u.setNivel(d.nivel());
-                u.setStatus(Usuario.Status.PENDENTE);
-                return usuarios.inserir(u).getId();
-            });
-            return new ColaboradorDAO(req.conexao()).buscar(id);
-        } catch (SQLIntegrityConstraintViolationException e) {
-            // Outro cadastro com o mesmo e-mail entrou entre a validação e o INSERT.
-            throw ApiException.validacao(Map.of("email", "Já existe um colaborador com este e-mail."));
-        }
+        return servico.criar(req.conexao(), d, senha);
     }
 
     private Usuario existente(Requisicao req) throws SQLException {
@@ -166,18 +121,8 @@ public class ColaboradorRecurso {
 
     private Object atualizar(Requisicao req) throws SQLException {
         Usuario u = existente(req);
-        Dados d = validar(req, u.getId(), u.getNivel());
-        u.setNome(d.nome());
-        u.setEmail(d.email());
-        u.setCargo(d.cargo());
-        u.setDepartamento(d.departamento());
-        u.setNivel(d.nivel());
-        try {
-            new UsuarioDAO(req.conexao()).atualizarCadastro(u);
-        } catch (SQLIntegrityConstraintViolationException e) {
-            throw ApiException.validacao(Map.of("email", "Já existe um colaborador com este e-mail."));
-        }
-        return new ColaboradorDAO(req.conexao()).buscar(u.getId());
+        ColaboradorService.Dados d = validar(req, u.getId(), u.getNivel());
+        return servico.atualizar(req.conexao(), u, d);
     }
 
     private Object alterarStatus(Requisicao req) throws SQLException {
@@ -186,64 +131,17 @@ public class ColaboradorRecurso {
         if (!"ativo".equals(valor) && !"inativo".equals(valor)) {
             throw ApiException.validacao(Map.of("status", "Use \"ativo\" ou \"inativo\"."));
         }
-        Usuario.Status novo = Usuario.Status.deValorBanco(valor);
-        if (novo == Usuario.Status.INATIVO && u.getId() == req.idUsuario()) {
-            throw ApiException.conflito("PROPRIO_ACESSO", "Você não pode desativar o próprio acesso.");
-        }
-        req.transacao(c -> {
-            UsuarioDAO usuarios = new UsuarioDAO(c);
-            boolean reativando = u.getStatus() == Usuario.Status.INATIVO && novo != Usuario.Status.INATIVO;
-            if (reativando && !usuarios.temLicencaLivreTravando()) {
-                throw semLicencas("Não há licenças livres para reativar este colaborador.");
-            }
-            usuarios.atualizarStatus(u.getId(), novo);
-            if (novo == Usuario.Status.INATIVO) new SessaoDAO(c).revogarTodas(u.getId());
-            return null;
-        });
-        return new ColaboradorDAO(req.conexao()).buscar(u.getId());
+        return servico.alterarStatus(req.conexao(), u, req.idUsuario(), Usuario.Status.deValorBanco(valor));
     }
 
-    /**
-     * Define uma senha provisória (ex.: a pessoa esqueceu a dela). Só admin e RH; a senha de um
-     * gestor só o admin redefine, para ninguém assumir uma conta com mais acesso que a sua.
-     */
     private Object redefinirSenha(Requisicao req) throws SQLException {
-        Usuario quem = req.usuario();
-        Usuario.TipoPerfil papel = quem.getTipoPerfil();
-        if (papel != Usuario.TipoPerfil.ADMIN && papel != Usuario.TipoPerfil.RH) {
-            throw ApiException.proibido("Só administradores e o RH podem redefinir senhas.");
-        }
-        Usuario u = existente(req);
-        if (u.getId().equals(quem.getId())) {
-            throw ApiException.conflito("PROPRIA_SENHA", "Para trocar a sua senha, use Meu perfil.");
-        }
-        if (u.getTipoPerfil() != Usuario.TipoPerfil.COLABORADOR && papel != Usuario.TipoPerfil.ADMIN) {
-            throw ApiException.proibido("Só um administrador pode redefinir a senha de um gestor.");
-        }
-        String senha = req.textoOriginal("senha");
-        String problema = Senhas.problema(senha);
-        if (problema != null) throw ApiException.validacao(Map.of("senha", problema));
-
-        req.transacao(c -> {
-            new UsuarioDAO(c).definirSenha(u.getId(), Senhas.gerar(senha), true);
-            new SessaoDAO(c).revogarTodas(u.getId());
-            new AuditoriaDAO(c).registrar(quem, "Senha redefinida", "redefiniu a senha de " + u.getNome() + ".");
-            return null;
-        });
+        servico.redefinirSenha(req.conexao(), req.usuario(), existente(req), req.textoOriginal("senha"));
         return null;
     }
 
-    private Object progresso(Requisicao req) throws SQLException {
-        Colaborador colaborador = new ColaboradorDAO(req.conexao()).buscar(req.idCaminho("id"));
-        if (colaborador == null) throw ApiException.naoEncontrado("Colaborador não encontrado.");
-        List<Map<String, Object>> cursos = new MatriculaDAO(req.conexao()).cursosDoUsuario(colaborador.id()).stream()
-                .map(m -> Map.<String, Object>of("curso", m.curso(), "progresso", m.progresso(),
-                        "status", Curso.statusDoProgresso(m.progresso())))
-                .toList();
-        return Map.of("colaborador", colaborador, "cursos", cursos);
-    }
-
     private Object exportar(Requisicao req) throws SQLException {
+        ZoneId fuso = new EmpresaDAO(req.conexao()).fusoHorario();
+        DateTimeFormatter dataHora = DATA_HORA_CSV.withZone(fuso);
         List<Colaborador> lista = new ColaboradorDAO(req.conexao()).listarTodos(filtro(req));
         DateTimeFormatter fmt = DATA_HORA_CSV.withZone(Relogio.fuso());
         Csv csv = new Csv("Matrícula", "Nome", "E-mail", "Cargo", "Departamento", "Nível", "Progresso (%)",

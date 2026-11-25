@@ -11,10 +11,9 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-import br.com.caracursos.http.Json;
-import br.com.caracursos.http.Pagina;
 import br.com.caracursos.model.Curso;
 import br.com.caracursos.model.CursoResumo;
+import br.com.caracursos.model.Pagina;
 
 /** Catálogo: cursos (com o progresso do usuário), categorias, áreas e materiais. */
 public class CursoDAO {
@@ -28,6 +27,9 @@ public class CursoDAO {
     }
 
     public record Material(int id, String nome, long tamanhoBytes, String url) {
+    }
+
+    public record Metadados(CursoResumo resumo, int duracaoMinutos) {
     }
 
     // O primeiro parâmetro de toda consulta é o id do usuário logado (para o progresso).
@@ -55,7 +57,8 @@ public class CursoDAO {
         StringBuilder where = new StringBuilder(" WHERE 1 = 1");
         List<Object> valores = new ArrayList<>();
         if (f.q() != null) {
-            where.append(" AND (c.titulo LIKE ? OR c.descricao LIKE ? OR c.instrutor_nome LIKE ?)");
+            where.append(" AND (c.titulo LIKE ? ESCAPE '\\\\' OR c.descricao LIKE ? ESCAPE '\\\\' "
+                    + "OR c.instrutor_nome LIKE ? ESCAPE '\\\\')");
             String termo = Jdbc.contem(f.q());
             valores.add(termo);
             valores.add(termo);
@@ -183,7 +186,7 @@ public class CursoDAO {
         try (Statement st = conexao.createStatement(); ResultSet rs = st.executeQuery(sql)) {
             while (rs.next()) {
                 lista.add(new Area(rs.getString("id"), rs.getString("nome"), rs.getString("icone"),
-                        Json.listaDeTexto(rs.getString("competencias")), rs.getInt("total_cursos"),
+                        Jdbc.listaDeTexto(rs.getString("competencias")), rs.getInt("total_cursos"),
                         rs.getInt("duracao")));
             }
         }
@@ -196,13 +199,27 @@ public class CursoDAO {
         try (PreparedStatement ps = conexao.prepareStatement(sql)) {
             Jdbc.preencher(ps, idCurso);
             try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    lista.add(new Material(rs.getInt("id"), rs.getString("nome"), rs.getLong("tamanho_bytes"),
-                            rs.getString("url")));
-                }
+                while (rs.next()) lista.add(mapearMaterial(rs));
             }
         }
         return lista;
+    }
+
+    public Material material(int idMaterial) throws SQLException {
+        String sql = "SELECT id, nome, tamanho_bytes, url FROM materiais WHERE id = ?";
+        try (PreparedStatement ps = conexao.prepareStatement(sql)) {
+            Jdbc.preencher(ps, idMaterial);
+            try (ResultSet rs = ps.executeQuery()) {
+                return rs.next() ? mapearMaterial(rs) : null;
+            }
+        }
+    }
+
+    private static Material mapearMaterial(ResultSet rs) throws SQLException {
+        int id = rs.getInt("id");
+        String url = rs.getString("url");
+        return new Material(id, rs.getString("nome"), rs.getLong("tamanho_bytes"),
+                url != null ? url : "/materiais/" + id + "/arquivo");
     }
 
     /** Resumo ({@code id, titulo, categoria}) de todos os cursos, por id. */
@@ -220,6 +237,19 @@ public class CursoDAO {
         try (Statement st = conexao.createStatement();
              ResultSet rs = st.executeQuery("SELECT id, carga_horaria_minutos FROM cursos")) {
             while (rs.next()) mapa.put(rs.getInt(1), rs.getInt(2));
+        }
+        return mapa;
+    }
+
+    public Map<Integer, Metadados> metadadosPorId() throws SQLException {
+        String sql = "SELECT c.id, c.titulo, cat.nome, c.carga_horaria_minutos "
+                + "FROM cursos c JOIN categorias cat ON cat.id = c.id_categoria";
+        Map<Integer, Metadados> mapa = new LinkedHashMap<>();
+        try (Statement st = conexao.createStatement(); ResultSet rs = st.executeQuery(sql)) {
+            while (rs.next()) {
+                int id = rs.getInt(1);
+                mapa.put(id, new Metadados(new CursoResumo(id, rs.getString(2), rs.getString(3)), rs.getInt(4)));
+            }
         }
         return mapa;
     }

@@ -8,13 +8,10 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 
+import br.com.caracursos.model.Atividade;
+
 /** Atividades dos cursos e as entregas do aluno (tabelas {@code atividades} e {@code entregas}). */
 public class AtividadeDAO {
-
-    /** Formato {@code Atividade} do contrato. {@code status}: pendente | entregue. */
-    public record Atividade(int id, int cursoId, String titulo, String descricao, Instant prazo, String status,
-                            Instant entregueEm) {
-    }
 
     private static final String SELECT = "SELECT t.id, t.id_curso, t.titulo, t.descricao, t.prazo, e.entregue_em "
             + "FROM atividades t LEFT JOIN entregas e ON e.id_atividade = t.id AND e.id_usuario = ? ";
