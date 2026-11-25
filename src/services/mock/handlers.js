@@ -653,7 +653,7 @@ const validarColaborador = (dados, idAtual) => {
     const dominios = dominiosAutorizados();
     const dominio = emailLimpo.slice(emailLimpo.indexOf('@') + 1);
     if (dominios.length > 0 && !dominios.includes(dominio)) {
-      campos.email = `Use um e-mail dos domínios autorizados (${dominios.join(', ')}).`;
+      campos.email = `Use um domínio autorizado: ${dominios.join(', ')}.`;
     } else if (db.colaboradores.some((c) => c.email === emailLimpo && c.id !== idAtual)) {
       campos.email = 'Já existe um colaborador com este e-mail.';
     }
