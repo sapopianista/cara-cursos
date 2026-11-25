@@ -11,15 +11,8 @@ import { USAR_MOCK } from '../config/ambiente';
 import { baixarArquivo, http } from './http';
 import * as mock from './mock/handlers';
 
-/**
- * Módulos que o backend Java ainda não implementa (ver backend/PLANO.md).
- * Continuam no mock mesmo com VITE_USAR_MOCK=false; quando o backend entregar
- * um deles, basta tirá-lo daqui.
- */
-export const MODULOS_SO_NO_MOCK = new Set();
-
-/** Escolhe a implementação conforme o ambiente e o módulo. */
-const endpoint = (modulo, simulado, real) => (USAR_MOCK || MODULOS_SO_NO_MOCK.has(modulo) ? simulado : real);
+/** Escolhe a implementação conforme o ambiente (mock em memória ou API REST). */
+const endpoint = (_modulo, simulado, real) => (USAR_MOCK ? simulado : real);
 
 // ---- Autenticação -------------------------------------------------------
 
@@ -36,7 +29,7 @@ export const alterarSenha = endpoint('auth', mock.alterarSenha, (dados) => http.
 export const sair = endpoint('auth', mock.sair, () => http.post('/auth/logout'));
 
 /** Contas de demonstração exibidas no login (somente no modo mock). */
-export const contasDemo = USAR_MOCK || MODULOS_SO_NO_MOCK.has('auth') ? mock.contasDemo : [];
+export const contasDemo = USAR_MOCK ? mock.contasDemo : [];
 
 // ---- Aluno --------------------------------------------------------------
 

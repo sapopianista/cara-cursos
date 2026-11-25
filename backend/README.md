@@ -1,7 +1,6 @@
 # Cara Cursos — API (Java 21 + JDBC + Servlets)
 
-API REST consumida pelo frontend React (pasta raiz). O contrato está em [`../docs/API.md`](../docs/API.md)
-e o andamento do projeto em [`PLANO.md`](PLANO.md).
+API REST consumida pelo frontend React (pasta raiz). O contrato está em [`../docs/API.md`](../docs/API.md).
 
 ## Pré-requisitos
 

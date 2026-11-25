@@ -8,7 +8,6 @@ Base: `VITE_API_URL` (padrão `/api`). Todas as rotas, exceto `POST /auth/login`
 
 **Implementado em `backend/`:** todos os módulos do contrato (autenticação, aluno, catálogo, trilhas, sala de aula,
 notificações, suporte, visão geral, colaboradores, gestores e permissões, relatórios, faturamento e configurações).
-`MODULOS_SO_NO_MOCK` em `src/services/api.js` está vazio.
 
 ## Convenções
 

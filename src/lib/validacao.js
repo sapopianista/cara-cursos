@@ -64,9 +64,6 @@ export const cnpj =
   (v) =>
     !v || cnpjValido(v) ? '' : msg;
 
-export const minimo = (n, msg) => (v) =>
-  v === '' || v == null || Number(v) >= n ? '' : (msg ?? `O valor mínimo é ${n}.`);
-
 /** Senha nova (mesma regra de Senhas.problema no backend): 8 a 128 caracteres, não só espaços. */
 export const TAMANHO_MINIMO_SENHA = 8;
 export const senha = () => (v) => {

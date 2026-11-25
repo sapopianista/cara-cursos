@@ -16,8 +16,6 @@ const TEMAS = {
   laranja: 'from-[#c2662d] via-[#5a2c17] to-[#170c08]',
 };
 
-export const TEMAS_DISPONIVEIS = Object.keys(TEMAS);
-
 /** Capa de curso/vídeo: usa `imagem` se existir, senão um gradiente temático. */
 export default function Thumbnail({ imagem, tema = 'azul', alt = '', className, imgClassName, children }) {
   return (
