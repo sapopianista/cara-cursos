@@ -3,8 +3,6 @@ package br.com.caracursos.recursos;
 import java.sql.SQLException;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +19,6 @@ import br.com.caracursos.relatorios.ContextoRelatorio;
 import br.com.caracursos.relatorios.GeradorRelatorio;
 import br.com.caracursos.relatorios.Geradores;
 import br.com.caracursos.seguranca.Permissao;
-import br.com.caracursos.util.Periodo;
 import br.com.caracursos.util.Relogio;
 
 /**
@@ -36,22 +33,12 @@ public class RelatorioRecurso {
     }
 
     /** Os mesmos de {@code modelosRelatorio} no mock do frontend. */
-    static final List<Modelo> MODELOS = List.of(
-            new Modelo("engajamento", "Engajamento e frequência",
-                    "Acessos, dias com acesso e aulas concluídas por colaborador no período.", "csv"),
-            new Modelo("conclusao", "Conclusão de cursos e trilhas",
-                    "Percentual de conclusão e cursos concluídos no período, por departamento.", "pdf"),
-            new Modelo("horas", "Horas de treinamento",
-                    "Horas de aula concluídas e certificados emitidos no período, por departamento.", "pdf"),
-            new Modelo("satisfacao", "Avaliações e satisfação",
-                    "Nota média de cada curso, com matriculados e concluintes no período.", "csv"),
-            new Modelo("individual", "Desempenho individual",
-                    "Cursos concluídos, certificados e aulas no período de cada colaborador.", "pdf"),
-            new Modelo("conformidade", "Conformidade e LGPD",
-                    "Situação de cada colaborador nos treinamentos obrigatórios (categoria Conformidade).", "csv"));
+    static final List<Modelo> MODELOS = RelatorioStrategy.modelos();
 
-    private static final DateTimeFormatter DATA_HORA =
-            DateTimeFormatter.ofPattern("dd/MM/yyyy HH:mm");
+    private static final Map<String, Integer> DIAS_PERIODO =
+            Map.of("7dias", 7, "30dias", 30, "trimestre", 90, "ano", 365);
+    private static final Map<String, String> ROTULO_PERIODO = Map.of("7dias", "Últimos 7 dias", "30dias",
+            "Últimos 30 dias", "trimestre", "Últimos 3 meses", "ano", "Últimos 12 meses");
 
     public void registrar(Roteador r) {
         Permissao p = Permissao.ADMIN_RELATORIOS;
@@ -61,7 +48,8 @@ public class RelatorioRecurso {
     }
 
     private static Modelo modelo(String id) {
-        return MODELOS.stream().filter(m -> m.id().equals(id)).findFirst().orElse(null);
+        RelatorioStrategy estrategia = RelatorioStrategy.porId(id);
+        return estrategia == null ? null : estrategia.toModelo();
     }
 
     /** Formato {@code Relatorio} do contrato. O arquivo é baixado pela própria API ({@code url}). */
@@ -88,14 +76,13 @@ public class RelatorioRecurso {
     }
 
     private Object gerar(Requisicao req) throws SQLException {
-        Modelo modelo = modelo(req.texto("modeloId"));
-        String idPeriodo = req.texto("periodo");
-        Periodo periodo = Periodo.deId(idPeriodo);
+        RelatorioStrategy estrategia = RelatorioStrategy.porId(req.texto("modeloId"));
+        String periodo = req.texto("periodo");
         String departamento = req.texto("departamento");
 
         Map<String, String> campos = new LinkedHashMap<>();
-        if (modelo == null) campos.put("modeloId", "Escolha um modelo de relatório.");
-        if (periodo == null) campos.put("periodo", "Escolha um período.");
+        if (estrategia == null) campos.put("modeloId", "Escolha um modelo de relatório.");
+        if (periodo == null || !DIAS_PERIODO.containsKey(periodo)) campos.put("periodo", "Escolha um período.");
         if (departamento != null && !new ColaboradorDAO(req.conexao()).departamentos().contains(departamento)) {
             campos.put("departamento", "Escolha um departamento da lista.");
         }
@@ -106,13 +93,11 @@ public class RelatorioRecurso {
         Instant desde = periodo.desde(agora);
         String subtitulo = periodo.rotulo() + " · "
                 + (departamento == null ? "Todos os departamentos" : departamento)
-                + " · Gerado em " + dataHora(agora) + " por " + req.usuario().getNome();
+                + " · Gerado em " + RelatorioStrategy.dataHora(agora) + " por " + req.usuario().getNome();
         RelatorioDAO dao = new RelatorioDAO(req.conexao());
-        GeradorRelatorio gerador = Geradores.de(modelo.id());
-        if (gerador == null) throw new IllegalStateException("Modelo sem gerador: " + modelo.id());
-        byte[] conteudo = gerador.gerar(new ContextoRelatorio(dao, desde, departamento, modelo.titulo(), subtitulo));
-        String nome = modelo.id() + "-" + LocalDate.ofInstant(agora, Relogio.fuso()) + "." + modelo.formato();
-        int id = dao.salvar(modelo.id(), periodo.id(), departamento, req.idUsuario(), req.usuario().getNome(), agora,
+        byte[] conteudo = estrategia.gerar(dao, desde, departamento, subtitulo);
+        String nome = estrategia.id() + "-" + LocalDate.ofInstant(agora, Relogio.fuso()) + "." + estrategia.formato();
+        int id = dao.salvar(estrategia.id(), periodo, departamento, req.idUsuario(), req.usuario().getNome(), agora,
                 new RelatorioDAO.Arquivo(nome, conteudo));
         return json(dao.buscar(id));
     }
@@ -122,8 +107,5 @@ public class RelatorioRecurso {
         if (arquivo == null) throw ApiException.naoEncontrado("Relatório não encontrado.");
         String tipo = arquivo.nome().endsWith(".pdf") ? "application/pdf" : "text/csv; charset=UTF-8";
         return new Arquivo(arquivo.nome(), tipo, arquivo.conteudo());
-    }
-    private static String dataHora(Instant instante) {
-        return instante == null ? "" : DATA_HORA.withZone(Relogio.fuso()).format(instante);
     }
 }

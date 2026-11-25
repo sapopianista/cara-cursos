@@ -1,12 +1,10 @@
 package br.com.caracursos.model;
 
 import java.time.Instant;
-import java.util.Objects;
 
 /** Matrícula de um usuário em um curso (tabela {@code matriculas}). */
-public class Matricula {
+public class Matricula extends Entidade {
 
-    private Integer id;
     private int idUsuario;
     private int idCurso;
     /** 0–100: porcentagem de aulas concluídas. */
@@ -19,7 +17,7 @@ public class Matricula {
 
     public Matricula(Integer id, int idUsuario, int idCurso, int progresso, Instant dataMatricula,
                      Instant dataConclusao) {
-        this.id = id;
+        super(id);
         this.idUsuario = idUsuario;
         this.idCurso = idCurso;
         this.progresso = progresso;
@@ -31,12 +29,9 @@ public class Matricula {
         return progresso >= 100;
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
+    @Override
+    public String resumo() {
+        return "Usuário #" + idUsuario + " no curso #" + idCurso + " (" + progresso + "%)";
     }
 
     public int getIdUsuario() {
@@ -77,19 +72,6 @@ public class Matricula {
 
     public void setDataConclusao(Instant dataConclusao) {
         this.dataConclusao = dataConclusao;
-    }
-
-    @Override
-    public boolean equals(Object outro) {
-        if (this == outro) return true;
-        if (!(outro instanceof Matricula)) return false;
-        Matricula m = (Matricula) outro;
-        return id != null && id.equals(m.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 
     @Override
