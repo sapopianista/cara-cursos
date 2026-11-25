@@ -101,23 +101,6 @@ public class EmpresaDAO {
         }
     }
 
-    public Politicas politicas() throws SQLException {
-        Configuracoes c = configuracoes();
-        return c == null ? new Politicas(true, true, true) : c.politicas();
-    }
-
-    /** Lista de domínios autorizados (em minúsculas), ou lista vazia se qualquer domínio for aceito. */
-    public List<String> dominiosAutorizados() throws SQLException {
-        Configuracoes c = configuracoes();
-        if (c == null || c.organizacao().dominiosAutorizados() == null || c.organizacao().dominiosAutorizados().isBlank()) {
-            return List.of();
-        }
-        return Arrays.stream(c.organizacao().dominiosAutorizados().split(","))
-                .map(d -> d.trim().toLowerCase(Locale.ROOT))
-                .filter(d -> !d.isEmpty())
-                .toList();
-    }
-
     public void salvar(Configuracoes c) throws SQLException {
         String sql = "UPDATE empresa SET nome_fantasia = ?, razao_social = ?, cnpj = ?, email_notificacao = ?, "
                 + "fuso_horario = ?, dominios_autorizados = ?, exigir_presenca_minima = ?, certificacao_automatica = ?, "

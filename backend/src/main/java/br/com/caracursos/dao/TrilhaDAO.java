@@ -68,7 +68,7 @@ public class TrilhaDAO {
             while (rs.next()) {
                 int id = rs.getInt("id");
                 porId.put(id, new Nivel(id, rs.getInt("ordem"), rs.getString("titulo"),
-                        rs.getString("perfil"), Json.listaDeTexto(rs.getString("competencias")), new ArrayList<>()));
+                        rs.getString("perfil"), Jdbc.listaDeTexto(rs.getString("competencias")), new ArrayList<>()));
             }
         }
         String sqlCursos = "SELECT id_nivel, id_curso FROM nivel_cursos ORDER BY id_nivel, ordem";

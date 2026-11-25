@@ -66,11 +66,6 @@ public class SalaRecurso {
         JsonObject cursoJson = Json.objeto(curso);
         cursoJson.add("trilha", Json.arvore(new TrilhaDAO(req.conexao()).trilhaDoCurso(idCurso)));
 
-        boolean permitirDownload = new EmpresaDAO(req.conexao()).politicas().permitirDownloadMateriais();
-        List<CursoDAO.Material> materiais = cursos.materiais(idCurso).stream()
-                .map(m -> permitirDownload ? m : new CursoDAO.Material(m.id(), m.nome(), m.tamanhoBytes(), null))
-                .toList();
-
         Map<String, Object> json = new LinkedHashMap<>();
         json.put("curso", cursoJson);
         json.put("aulas", aulas);

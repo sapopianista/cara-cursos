@@ -1,6 +1,7 @@
 package br.com.caracursos.recursos;
 
 import java.sql.SQLException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
@@ -8,16 +9,12 @@ import java.util.List;
 import java.util.Map;
 
 import br.com.caracursos.dao.ColaboradorDAO;
-import br.com.caracursos.dao.EmpresaDAO;
 import br.com.caracursos.dao.RelatorioDAO;
 import br.com.caracursos.dao.RelatorioDAO.Gerado;
 import br.com.caracursos.http.ApiException;
 import br.com.caracursos.http.Arquivo;
 import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
-import br.com.caracursos.relatorios.ContextoRelatorio;
-import br.com.caracursos.relatorios.GeradorRelatorio;
-import br.com.caracursos.relatorios.Geradores;
 import br.com.caracursos.seguranca.Permissao;
 import br.com.caracursos.util.Relogio;
 
@@ -88,10 +85,9 @@ public class RelatorioRecurso {
         }
         if (!campos.isEmpty()) throw ApiException.validacao(campos);
 
-        ZoneId fuso = new EmpresaDAO(req.conexao()).fusoHorario();
         Instant agora = Relogio.agora();
-        Instant desde = periodo.desde(agora);
-        String subtitulo = periodo.rotulo() + " · "
+        Instant desde = agora.minus(Duration.ofDays(DIAS_PERIODO.get(periodo)));
+        String subtitulo = ROTULO_PERIODO.get(periodo) + " · "
                 + (departamento == null ? "Todos os departamentos" : departamento)
                 + " · Gerado em " + RelatorioStrategy.dataHora(agora) + " por " + req.usuario().getNome();
         RelatorioDAO dao = new RelatorioDAO(req.conexao());

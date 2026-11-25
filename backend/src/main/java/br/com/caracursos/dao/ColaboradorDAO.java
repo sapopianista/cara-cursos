@@ -161,7 +161,7 @@ public class ColaboradorDAO {
                 while (rs.next()) {
                     lista.add(new Colaborador(rs.getInt("id"), rs.getString("matricula"), rs.getString("nome"),
                             rs.getString("email"), rs.getString("cargo"), rs.getString("departamento"),
-                            rs.getInt("nivel"), rs.getString("tipo_perfil"), rs.getInt("progresso"),
+                            rs.getInt("nivel"), rs.getInt("progresso"),
                             rs.getInt("concluidos"), rs.getString("status"), Jdbc.instante(rs, "ultimo_acesso"),
                             Jdbc.instante(rs, "criado_em")));
                 }

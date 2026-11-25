@@ -58,7 +58,7 @@ public class UsuarioDAO {
                 u.setId(chaves.getInt(1));
             }
         }
-        u.setMatricula(Usuario.formatarMatricula(u.getId()));
+        u.setMatricula(String.format("COL-%04d", u.getId()));
         u.setCriadoEm(agora);
         try (PreparedStatement ps = conexao.prepareStatement("UPDATE usuarios SET matricula = ? WHERE id = ?")) {
             Jdbc.preencher(ps, u.getMatricula(), u.getId());
