@@ -1,7 +1,6 @@
 package br.com.caracursos.model;
 
 import java.time.Instant;
-import java.util.Objects;
 
 /**
  * Usuário da plataforma (tabela {@code usuarios}): colaborador da empresa e,
@@ -10,7 +9,7 @@ import java.util.Objects;
  * <p>O campo {@code senha} guarda o hash da senha, nunca o texto puro, e não
  * deve ser enviado ao frontend.
  */
-public class Usuario {
+public class Usuario extends Entidade {
 
     /** Papéis aceitos pela coluna {@code tipo_perfil}; os mesmos do frontend. */
     public enum TipoPerfil {
@@ -46,7 +45,6 @@ public class Usuario {
         }
     }
 
-    private Integer id;
     private String matricula;
     private String nome;
     private String email;
@@ -74,7 +72,7 @@ public class Usuario {
 
     /** Para usuários lidos da base de dados. */
     public Usuario(Integer id, String nome, String email, String senha, TipoPerfil tipoPerfil) {
-        this.id = id;
+        super(id);
         this.nome = nome;
         this.email = email;
         this.senha = senha;
@@ -86,12 +84,11 @@ public class Usuario {
         return nome == null ? null : nome.trim().split("\\s+")[0];
     }
 
-    public Integer getId() {
-        return id;
-    }
-
-    public void setId(Integer id) {
-        this.id = id;
+    @Override
+    public String resumo() {
+        String papel = tipoPerfil == null ? "indefinido" : tipoPerfil.getValorBanco();
+        String situacao = status == null ? "indefinido" : status.getValorBanco();
+        return nome + " <" + email + "> (" + papel + ", " + situacao + ")";
     }
 
     public String getMatricula() {
@@ -213,19 +210,6 @@ public class Usuario {
 
     public void setCriadoEm(Instant criadoEm) {
         this.criadoEm = criadoEm;
-    }
-
-    @Override
-    public boolean equals(Object outro) {
-        if (this == outro) return true;
-        if (!(outro instanceof Usuario)) return false;
-        Usuario usuario = (Usuario) outro;
-        return id != null && id.equals(usuario.id);
-    }
-
-    @Override
-    public int hashCode() {
-        return Objects.hashCode(id);
     }
 
     /** Não inclui a senha, para ela nunca aparecer em logs. */

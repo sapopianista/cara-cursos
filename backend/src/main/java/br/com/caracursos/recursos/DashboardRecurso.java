@@ -6,6 +6,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -89,8 +90,7 @@ public class DashboardRecurso {
                 if (hora >= TURNOS.get(i).de() && hora < TURNOS.get(i).ate()) contagens[i] += total;
             }
         });
-        int total = 0;
-        for (int n : contagens) total += n;
+        int total = Arrays.stream(contagens).reduce(0, Integer::sum);
         int[] percentuais = percentuaisQueSomam100(contagens, total);
 
         List<Map<String, Object>> segmentos = new ArrayList<>();

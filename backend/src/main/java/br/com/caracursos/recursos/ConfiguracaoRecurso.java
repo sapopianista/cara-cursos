@@ -20,6 +20,7 @@ import br.com.caracursos.dao.EmpresaDAO.Politicas;
 import br.com.caracursos.http.ApiException;
 import br.com.caracursos.http.Requisicao;
 import br.com.caracursos.http.Roteador;
+import br.com.caracursos.integracao.ConsultaCnpjClient;
 import br.com.caracursos.seguranca.Permissao;
 import br.com.caracursos.util.Cnpj;
 
@@ -37,10 +38,25 @@ public class ConfiguracaoRecurso {
     private static final Set<String> FUSOS = Set.of("America/Sao_Paulo", "America/Manaus", "America/Rio_Branco",
             "America/Noronha", "Europe/Lisbon");
 
+    private final ConsultaCnpjClient consultaCnpj;
+
+    public ConfiguracaoRecurso() {
+        this(new ConsultaCnpjClient());
+    }
+
+    public ConfiguracaoRecurso(ConsultaCnpjClient consultaCnpj) {
+        this.consultaCnpj = consultaCnpj;
+    }
+
     public void registrar(Roteador r) {
         Permissao p = Permissao.ADMIN_CONFIGURACOES;
         r.get("/admin/configuracoes", p, req -> new EmpresaDAO(req.conexao()).configuracoes());
         r.put("/admin/configuracoes", p, this::salvar);
+        r.get("/admin/configuracoes/cnpj/{cnpj}", p, this::consultarCnpj);
+    }
+
+    private Object consultarCnpj(Requisicao req) {
+        return consultaCnpj.consultar(req.variavel("cnpj"));
     }
 
     private static JsonObject objeto(JsonObject pai, String campo) {

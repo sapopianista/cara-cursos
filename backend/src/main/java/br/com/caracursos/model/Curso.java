@@ -1,6 +1,8 @@
 package br.com.caracursos.model;
 
+import java.util.Comparator;
 import java.util.Objects;
+import java.util.function.Predicate;
 
 /**
  * Curso do catálogo (tabela {@code cursos}) já com o progresso do usuário logado.
@@ -8,6 +10,18 @@ import java.util.Objects;
  * por isso o objeto é enviado ao frontend como está.
  */
 public class Curso {
+
+    public static final Predicate<Curso> CONCLUIDO = c -> c.progresso >= 100;
+    public static final Predicate<Curso> EM_ANDAMENTO = c -> c.progresso > 0 && c.progresso < 100;
+    public static final Predicate<Curso> NAO_INICIADO = c -> c.progresso <= 0;
+
+    public static final Comparator<Curso> POR_NOTA_DECRESCENTE = Comparator
+            .comparingDouble(Curso::getNota).reversed()
+            .thenComparing(Comparator.comparingInt(Curso::getTotalAvaliacoes).reversed())
+            .thenComparingInt(Curso::getId);
+
+    public static final Comparator<Curso> POR_TITULO =
+            Comparator.comparing(Curso::getTitulo, String.CASE_INSENSITIVE_ORDER);
 
     public record Categoria(String id, String nome) {
     }

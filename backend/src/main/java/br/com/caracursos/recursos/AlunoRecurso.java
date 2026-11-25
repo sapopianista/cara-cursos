@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import com.google.gson.JsonObject;
 
@@ -34,6 +35,7 @@ public class AlunoRecurso {
 
     private static final int META_MINIMA = 30;
     private static final int META_MAXIMA = 3000;
+    private static final Predicate<Integer> PROGRESSO_CONCLUIDO = p -> p >= 100;
 
     public void registrar(Roteador r) {
         r.get("/alunos/me/inicio", Permissao.AUTENTICADO, this::inicio);
@@ -101,7 +103,8 @@ public class AlunoRecurso {
         int totalConcluidos = 0;
         for (TrilhaDAO.Nivel n : new TrilhaDAO(c).niveis()) {
             List<Integer> ids = n.cursoIds();
-            int concluidos = (int) ids.stream().filter(id -> progresso.getOrDefault(id, 0) >= 100).count();
+            Predicate<Integer> cursoConcluido = id -> PROGRESSO_CONCLUIDO.test(progresso.getOrDefault(id, 0));
+            int concluidos = (int) ids.stream().filter(cursoConcluido).count();
             int media = ids.isEmpty() ? 0
                     : (int) Math.round(ids.stream().mapToInt(id -> progresso.getOrDefault(id, 0)).average().orElse(0));
             String estado = "bloqueado";
@@ -112,9 +115,9 @@ public class AlunoRecurso {
                 achouAtual = true;
             }
             double restantes = ids.stream()
-                    .mapToDouble(id -> duracoes.getOrDefault(id, 0) * (100 - progresso.getOrDefault(id, 0)) / 100.0)
-                    .sum();
-            CursoResumo proximo = ids.stream().filter(id -> progresso.getOrDefault(id, 0) < 100).findFirst()
+                    .map(id -> duracoes.getOrDefault(id, 0) * (100 - progresso.getOrDefault(id, 0)) / 100.0)
+                    .reduce(0.0, Double::sum);
+            CursoResumo proximo = ids.stream().filter(cursoConcluido.negate()).findFirst()
                     .map(resumos::get).orElse(null);
 
             Map<String, Object> nivel = new LinkedHashMap<>();
@@ -170,9 +173,10 @@ public class AlunoRecurso {
         Usuario u = req.usuario();
         Map<Integer, Integer> progresso = new MatriculaDAO(c).progressoPorCurso(u.getId());
         Map<Integer, Integer> duracoes = new CursoDAO(c).duracoesPorId();
-        long concluidos = progresso.values().stream().filter(p -> p >= 100).count();
+        long concluidos = progresso.values().stream().filter(PROGRESSO_CONCLUIDO).count();
         double minutos = progresso.entrySet().stream()
-                .mapToDouble(e -> duracoes.getOrDefault(e.getKey(), 0) * e.getValue() / 100.0).sum();
+                .map(e -> duracoes.getOrDefault(e.getKey(), 0) * e.getValue() / 100.0)
+                .reduce(0.0, Double::sum);
 
         Map<String, Object> json = AuthRecurso.usuarioJson(u, c);
         json.put("matricula", u.getMatricula());
@@ -234,12 +238,15 @@ public class AlunoRecurso {
             porCargo.add(Map.of("curso", curso, "motivo", "Popular entre colegas de " + u.getDepartamento()));
             usados.add(curso.getId());
         }
-        for (Curso curso : cursos.naoIniciados(u.getId())) {
-            if (porCargo.size() >= RECOMENDACOES) break;
-            if (usados.contains(curso.getId())) continue;
-            porCargo.add(Map.of("curso", curso, "motivo", "Entre os mais bem avaliados do catálogo"));
-            usados.add(curso.getId());
-        }
+        Predicate<Curso> naoSelecionado = curso -> !usados.contains(curso.getId());
+        cursos.naoIniciados(u.getId()).stream()
+                .filter(naoSelecionado)
+                .sorted(Curso.POR_NOTA_DECRESCENTE)
+                .limit(Math.max(0, RECOMENDACOES - porCargo.size()))
+                .forEach(curso -> {
+                    porCargo.add(Map.of("curso", curso, "motivo", "Entre os mais bem avaliados do catálogo"));
+                    usados.add(curso.getId());
+                });
 
         Map<String, Object> continuidade = null;
         for (int concluido : matriculas.cursosConcluidos(u.getId())) {
