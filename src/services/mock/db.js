@@ -398,7 +398,12 @@ export const aulasPorCurso = Object.fromEntries(cursos.map((c) => [c.id, gerarAu
 
 export const materiaisPorCurso = {
   1: [
-    { id: 1, nome: 'Guia de comunicação assertiva.pdf', tamanhoBytes: 1_480_000, url: '/materiais/1/arquivo' },
+    {
+      id: 1,
+      nome: 'Guia de comunicação assertiva.pdf',
+      tamanhoBytes: 1_480_000,
+      url: '/materiais/1/arquivo',
+    },
     { id: 2, nome: 'Roteiro de feedback.docx', tamanhoBytes: 86_000, url: '/materiais/2/arquivo' },
   ],
   4: [{ id: 3, nome: 'Planilhas de exercício.xlsx', tamanhoBytes: 320_000, url: '/materiais/3/arquivo' }],

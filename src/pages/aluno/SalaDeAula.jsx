@@ -135,7 +135,8 @@ function AvaliacaoAula({ aula, curso, presenca, bloqueada, concluindo, onConclui
             Avaliação bloqueada pela política de presença mínima
           </p>
           <p className="text-muted">
-            Conclua pelo menos 80% das aulas do curso antes de realizar esta avaliação (presença atual: {presenca}%).
+            Conclua pelo menos 80% das aulas do curso antes de realizar esta avaliação (presença atual:{' '}
+            {presenca}%).
           </p>
         </div>
       ) : aula.status === 'concluida' ? (
@@ -250,7 +251,9 @@ export default function SalaDeAula() {
   const presencaRegulares =
     aulasRegulares.length === 0
       ? 100
-      : Math.round((aulasRegulares.filter((a) => a.status === 'concluida').length / aulasRegulares.length) * 100);
+      : Math.round(
+          (aulasRegulares.filter((a) => a.status === 'concluida').length / aulasRegulares.length) * 100,
+        );
   const exigirPresenca = dados?.politicas?.exigirPresencaMinima ?? true;
   const avaliacaoBloqueada =
     aula?.tipo === 'avaliacao' && aula.status !== 'concluida' && exigirPresenca && presencaRegulares < 80;
@@ -321,7 +324,10 @@ export default function SalaDeAula() {
           {dados.materiais.length > 0 && (
             <Secao titulo="Material de apoio">
               {!permitirDownloads && (
-                <p role="status" className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-2.5 text-sm text-muted">
+                <p
+                  role="status"
+                  className="mb-3 rounded-xl border border-line bg-surface2 px-4 py-2.5 text-sm text-muted"
+                >
                   O download de materiais de apoio está desativado pela organização.
                 </p>
               )}
