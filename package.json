@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "api": "powershell -ExecutionPolicy Bypass -File backend/rodar.ps1",
     "build": "vite build",
     "preview": "vite preview",
     "lint": "eslint .",
